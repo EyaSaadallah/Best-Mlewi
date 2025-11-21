@@ -156,4 +156,42 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
       'role': user.role.name,
     };
   }
+
+  /// Update user by internal ID
+  Future<void> updateUser(Utilisateur user) async {
+    try {
+      final snapshot = await firestore
+          .collection(collectionName)
+          .where('id', isEqualTo: user.id)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        await snapshot.docs.first.reference.update(toFirestore(user));
+      } else {
+        throw Exception('User not found with id: ${user.id}');
+      }
+    } catch (e) {
+      throw Exception('Error updating user: $e');
+    }
+  }
+
+  /// Delete user by internal ID
+  Future<void> deleteUser(int id) async {
+    try {
+      final snapshot = await firestore
+          .collection(collectionName)
+          .where('id', isEqualTo: id)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        await snapshot.docs.first.reference.delete();
+      } else {
+        throw Exception('User not found with id: $id');
+      }
+    } catch (e) {
+      throw Exception('Error deleting user: $e');
+    }
+  }
 }

@@ -27,8 +27,9 @@ class FirebaseAuthService {
     String password,
     String nom,
     String prenom,
-    String telephone,
-  ) async {
+    String telephone, {
+    Role role = Role.client,
+  }) async {
     try {
       // Create Firebase auth user
       final userCredential = await _auth.createUserWithEmailAndPassword(
@@ -47,7 +48,7 @@ class FirebaseAuthService {
           motDePasse: '', // Empty - password is managed by Firebase Auth
           telephone: telephone,
           dateInscription: DateTime.now(),
-          role: Role.client,
+          role: role,
         );
 
         await _userRepository.create(utilisateur);

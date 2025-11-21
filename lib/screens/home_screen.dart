@@ -3,6 +3,7 @@ import '../services/firebase_auth_service.dart';
 import '../models/enums.dart';
 import 'pos_management_screen.dart';
 import 'menu_management_screen.dart';
+import 'collaborateur_management_screen.dart';
 
 /// Home screen showing different content based on user role
 class HomeScreen extends StatefulWidget {
@@ -207,7 +208,14 @@ class _HomeScreenState extends State<HomeScreen> {
             'Collaborators',
             'Manage staff and team members',
             Icons.people,
-            () {},
+            () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CollaborateurManagementScreen(),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 12),
           _buildMenuCard(
@@ -229,11 +237,43 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCoordinateurContent() {
+    final user = _authService.currentUser;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.orange[400]!, Colors.orange[600]!],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hello Coordinateur! 👋',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Welcome ${user?.prenom} ${user?.nom}',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
           Text(
             'Coordinator Dashboard',
             style: Theme.of(context).textTheme.headlineMedium,
@@ -251,11 +291,43 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildLivreurContent() {
+    final user = _authService.currentUser;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.green[400]!, Colors.green[600]!],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hello Livreur! 🛵',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Welcome ${user?.prenom} ${user?.nom}',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
           Text(
             'Delivery Dashboard',
             style: Theme.of(context).textTheme.headlineMedium,
@@ -280,11 +352,43 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCollaborateurContent() {
+    final user = _authService.currentUser;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue[400]!, Colors.blue[600]!],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hello Collaborateur! 👋',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Welcome ${user?.prenom} ${user?.nom}',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
           Text(
             'Collaborator Dashboard',
             style: Theme.of(context).textTheme.headlineMedium,
