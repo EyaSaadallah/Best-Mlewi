@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "833540188100",
+    "project_id": "bestmlewi-8691c",
+    "storage_bucket": "bestmlewi-8691c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:833540188100:android:f77629296d53d96e2ba691",
+        "android_client_info": {
+          "package_name": "com.bestmlewi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6S6UekbaKYAUeMO62MzKibGvaG99UjaU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
