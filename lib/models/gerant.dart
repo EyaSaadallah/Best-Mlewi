@@ -11,6 +11,9 @@ class Gerant extends Utilisateur {
     required super.motDePasse,
     required super.telephone,
     required super.dateInscription,
+    super.isActive = true,
+    super.isAffected = false,
+    super.isAvailable = true,
   }) : super(role: Role.gerant);
 
   /// Consult system information

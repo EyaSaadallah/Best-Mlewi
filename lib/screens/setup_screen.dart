@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/seed_data.dart';
+import '../services/migration_service.dart';
 
 /// Setup screen to initialize gerant account
 class SetupScreen extends StatefulWidget {
@@ -24,17 +25,17 @@ class _SetupScreenState extends State<SetupScreen> {
     try {
       print('Starting gerant account creation...');
       await SeedData.createGerantAccount(
-        email: 'benjdidiaomar@gmail.com',
-        password: 'Gerant@2024',
-        nom: 'Ben Jdidia',
-        prenom: 'Omar',
+        email: 'saadallaheya205@gmail.com',
+        password: 'Eya2004*',
+        nom: 'SaadAllah',
+        prenom: 'eya',
         telephone: '+216',
       );
 
       print('✓ Gerant account created successfully!');
       setState(() {
         _message =
-            '✓ Gerant account created successfully!\n\nEmail: benjdidiaomar@gmail.com\nPassword: Gerant@2024\n\nYou can now login with these credentials.';
+            '✓ Gerant account created successfully!\n\nEmail: saadallaheya205@gmail.com\nPassword: Eya2004*\n\nYou can now login with these credentials.';
         _isSuccess = true;
       });
 
@@ -45,6 +46,38 @@ class _SetupScreenState extends State<SetupScreen> {
       }
     } catch (e) {
       print('✗ Error creating gerant: $e');
+      setState(() {
+        _message = '✗ Error: ${e.toString().replaceAll('Exception: ', '')}';
+        _isSuccess = false;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _runMigration() async {
+    setState(() {
+      _isLoading = true;
+      _message = null;
+      _isSuccess = false;
+    });
+
+    try {
+      print('Starting migration...');
+      final migrationService = MigrationService();
+      await migrationService.migrateUsers();
+
+      print('✓ Migration completed successfully!');
+      setState(() {
+        _message = '✓ Data migration completed successfully!';
+        _isSuccess = true;
+      });
+    } catch (e) {
+      print('✗ Error during migration: $e');
       setState(() {
         _message = '✗ Error: ${e.toString().replaceAll('Exception: ', '')}';
         _isSuccess = false;
@@ -178,6 +211,34 @@ class _SetupScreenState extends State<SetupScreen> {
               child: Text(
                 '⚠️ This will create a new gerant account in Firebase. If the account already exists, it will be skipped.',
                 style: TextStyle(fontSize: 12, color: Colors.amber[900]),
+              ),
+            ),
+            const SizedBox(height: 32),
+            const Divider(),
+            const SizedBox(height: 32),
+            // Migration Section
+            Text(
+              'Data Migration',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Update existing users with new fields (isAvailable, isAffected)',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _isLoading ? null : _runMigration,
+              icon: const Icon(Icons.update),
+              label: const Text('Migrate User Data'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
               ),
             ),
           ],

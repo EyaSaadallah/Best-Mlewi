@@ -10,6 +10,8 @@ class PointDeVente {
   final bool actif;
   final List<Collaborateur> collaborateurs;
   final Menu? menu;
+  final int? coordinateurId;
+  final List<int> collaborateurIds;
 
   PointDeVente({
     required this.id,
@@ -19,6 +21,8 @@ class PointDeVente {
     required this.actif,
     required this.collaborateurs,
     this.menu,
+    this.coordinateurId,
+    this.collaborateurIds = const [],
   });
 
   /// Activate point of sale
@@ -33,5 +37,5 @@ class PointDeVente {
 
   @override
   String toString() =>
-      'PointDeVente(id: $id, nom: $nom, adresse: $adresse, actif: $actif)';
+      'PointDeVente(id: $id, nom: $nom, adresse: $adresse, actif: $actif, coordinateurId: $coordinateurId)';
 }

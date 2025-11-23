@@ -50,6 +50,7 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
       final snapshot = await firestore
           .collection(collectionName)
           .where('role', isEqualTo: role.name)
+          .where('isActive', isEqualTo: true)
           .get();
       return snapshot.docs.map((doc) => fromFirestore(doc)).toList();
     } catch (e) {
@@ -76,6 +77,9 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
       dateInscription:
           (data['dateInscription'] as Timestamp?)?.toDate() ?? DateTime.now(),
       role: role,
+      isActive: data['isActive'] as bool? ?? true,
+      isAffected: data['isAffected'] as bool? ?? false,
+      isAvailable: data['isAvailable'] as bool? ?? true,
     );
 
     // Return appropriate user type based on role
@@ -89,6 +93,9 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           motDePasse: baseUser.motDePasse,
           telephone: baseUser.telephone,
           dateInscription: baseUser.dateInscription,
+          isActive: baseUser.isActive,
+          isAffected: baseUser.isAffected,
+          isAvailable: baseUser.isAvailable,
         );
       case Role.gerant:
         return Gerant(
@@ -99,6 +106,9 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           motDePasse: baseUser.motDePasse,
           telephone: baseUser.telephone,
           dateInscription: baseUser.dateInscription,
+          isActive: baseUser.isActive,
+          isAffected: baseUser.isAffected,
+          isAvailable: baseUser.isAvailable,
         );
       case Role.coordinateur:
         return Coordinateur(
@@ -109,6 +119,9 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           motDePasse: baseUser.motDePasse,
           telephone: baseUser.telephone,
           dateInscription: baseUser.dateInscription,
+          isActive: baseUser.isActive,
+          isAffected: baseUser.isAffected,
+          isAvailable: baseUser.isAvailable,
         );
       case Role.livreur:
         return Livreur(
@@ -119,6 +132,9 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           motDePasse: baseUser.motDePasse,
           telephone: baseUser.telephone,
           dateInscription: baseUser.dateInscription,
+          isActive: baseUser.isActive,
+          isAffected: baseUser.isAffected,
+          isAvailable: baseUser.isAvailable,
         );
       case Role.collaborateur:
         return Collaborateur(
@@ -129,6 +145,9 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           motDePasse: baseUser.motDePasse,
           telephone: baseUser.telephone,
           dateInscription: baseUser.dateInscription,
+          isActive: baseUser.isActive,
+          isAffected: baseUser.isAffected,
+          isAvailable: baseUser.isAvailable,
         );
       case Role.visiteur:
         return Visiteur(
@@ -139,6 +158,9 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           motDePasse: baseUser.motDePasse,
           telephone: baseUser.telephone,
           dateInscription: baseUser.dateInscription,
+          isActive: baseUser.isActive,
+          isAffected: baseUser.isAffected,
+          isAvailable: baseUser.isAvailable,
         );
     }
   }
@@ -154,6 +176,9 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
       'telephone': user.telephone,
       'dateInscription': Timestamp.fromDate(user.dateInscription),
       'role': user.role.name,
+      'isActive': user.isActive,
+      'isAffected': user.isAffected,
+      'isAvailable': user.isAvailable,
     };
   }
 
@@ -186,12 +211,53 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           .get();
 
       if (snapshot.docs.isNotEmpty) {
-        await snapshot.docs.first.reference.delete();
+        // Soft delete: set isActive to false
+        await snapshot.docs.first.reference.update({'isActive': false});
       } else {
         throw Exception('User not found with id: $id');
       }
     } catch (e) {
       throw Exception('Error deleting user: $e');
+    }
+  }
+
+  /// Update user's isAffected status
+  Future<void> updateIsAffected(int id, bool isAffected) async {
+    try {
+      final snapshot = await firestore
+          .collection(collectionName)
+          .where('id', isEqualTo: id)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        await snapshot.docs.first.reference.update({'isAffected': isAffected});
+      } else {
+        throw Exception('User not found with id: $id');
+      }
+    } catch (e) {
+      throw Exception('Error updating user status: $e');
+    }
+  }
+
+  /// Update user's isAvailable status
+  Future<void> updateIsAvailable(int id, bool isAvailable) async {
+    try {
+      final snapshot = await firestore
+          .collection(collectionName)
+          .where('id', isEqualTo: id)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        await snapshot.docs.first.reference.update({
+          'isAvailable': isAvailable,
+        });
+      } else {
+        throw Exception('User not found with id: $id');
+      }
+    } catch (e) {
+      throw Exception('Error updating user availability: $e');
     }
   }
 }

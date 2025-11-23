@@ -11,6 +11,9 @@ class Collaborateur extends Utilisateur {
     required String motDePasse,
     required String telephone,
     required DateTime dateInscription,
+    bool isActive = true,
+    bool isAffected = false,
+    bool isAvailable = true,
   }) : super(
          id: id,
          nom: nom,
@@ -20,6 +23,9 @@ class Collaborateur extends Utilisateur {
          telephone: telephone,
          dateInscription: dateInscription,
          role: Role.collaborateur,
+         isActive: isActive,
+         isAffected: isAffected,
+         isAvailable: isAvailable,
        );
 
   /// Activate availability

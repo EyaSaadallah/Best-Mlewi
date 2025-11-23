@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/firebase_auth_service.dart';
+import '../services/email_service.dart';
 import '../utils/validators.dart';
 import '../models/enums.dart';
 
@@ -21,6 +22,7 @@ class _CollaborateurSignupScreenState extends State<CollaborateurSignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _authService = FirebaseAuthService();
+  final _emailService = EmailService();
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -49,7 +51,7 @@ class _CollaborateurSignupScreenState extends State<CollaborateurSignupScreen> {
     });
 
     try {
-      final success = await _authService.register(
+      final success = await _authService.registerSecondary(
         _emailController.text.trim(),
         _passwordController.text,
         _lastNameController.text.trim(),
@@ -60,13 +62,16 @@ class _CollaborateurSignupScreenState extends State<CollaborateurSignupScreen> {
 
       if (success) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Collaborator account created successfully!'),
-              backgroundColor: Colors.green,
-            ),
+          // Show credentials dialog with option to send email
+          await _showCredentialsDialog(
+            _emailController.text.trim(),
+            _passwordController.text,
+            _firstNameController.text.trim(),
           );
-          Navigator.of(context).pop(); // Return to previous screen
+
+          if (mounted) {
+            Navigator.of(context).pop(); // Return to previous screen
+          }
         }
       } else {
         setState(() {
@@ -84,6 +89,120 @@ class _CollaborateurSignupScreenState extends State<CollaborateurSignupScreen> {
         });
       }
     }
+  }
+
+  Future<void> _showCredentialsDialog(
+    String email,
+    String password,
+    String firstName,
+  ) async {
+    // Log credentials to console for debugging/fallback
+    debugPrint('=== NEW COLLABORATOR CREDENTIALS ===');
+    debugPrint('Email: $email');
+    debugPrint('Password: $password');
+    debugPrint('=====================================');
+
+    // Auto-send email in background
+    _emailService
+        .sendCredentialsEmail(
+          toEmail: email,
+          password: password,
+          firstName: firstName,
+        )
+        .then((sent) {
+          if (sent) {
+            debugPrint('✅ Auto-email sent successfully');
+          } else {
+            debugPrint('❌ Auto-email failed');
+          }
+        });
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Collaborator Account Created'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('The account has been created successfully.'),
+            const SizedBox(height: 16),
+            const Text(
+              'Attempting to send credentials via email...',
+              style: TextStyle(fontStyle: FontStyle.italic),
+            ),
+            const SizedBox(height: 16),
+            SelectableText.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(
+                    text: 'Email: ',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  TextSpan(text: '$email\n'),
+                  const TextSpan(
+                    text: 'Password: ',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  TextSpan(text: password),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'If the email is not received, please share these credentials manually.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text('Done'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              // Show loading indicator
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Sending email...')));
+
+              final sent = await _emailService.sendCredentialsEmail(
+                toEmail: email,
+                password: password,
+                firstName: firstName,
+              );
+
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                if (sent) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Email sent successfully!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Failed to send email. Please configure credentials in lib/services/email_service.dart',
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.send),
+            label: const Text('Resend Email'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

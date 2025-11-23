@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/utilisateur.dart';
 import '../models/enums.dart';
+import 'package:firebase_core/firebase_core.dart';
+import '../config/firebase_options.dart';
 import '../repositories/utilisateur_repository.dart';
 
 /// Firebase authentication service
@@ -63,6 +65,58 @@ class FirebaseAuthService {
     }
   }
 
+  /// Register a new user without signing out the current user (for admins/gerants)
+  Future<bool> registerSecondary(
+    String email,
+    String password,
+    String nom,
+    String prenom,
+    String telephone, {
+    Role role = Role.collaborateur,
+  }) async {
+    FirebaseApp? secondaryApp;
+    try {
+      // Initialize a secondary Firebase App
+      secondaryApp = await Firebase.initializeApp(
+        name: 'SecondaryApp',
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+
+      final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+
+      // Create user in the secondary app (doesn't affect main auth state)
+      final userCredential = await secondaryAuth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (userCredential.user != null) {
+        // Create Firestore user document using the MAIN app's repository/firestore
+        final utilisateur = Utilisateur(
+          id: DateTime.now().millisecondsSinceEpoch,
+          nom: nom,
+          prenom: prenom,
+          email: email,
+          motDePasse: '', // Empty - password is managed by Firebase Auth
+          telephone: telephone,
+          dateInscription: DateTime.now(),
+          role: role,
+        );
+
+        await _userRepository.create(utilisateur);
+        return true;
+      }
+      return false;
+    } on FirebaseAuthException catch (e) {
+      throw Exception('Registration failed: ${e.message}');
+    } catch (e) {
+      throw Exception('Unexpected error during registration: $e');
+    } finally {
+      // Clean up the secondary app
+      await secondaryApp?.delete();
+    }
+  }
+
   /// Login user with email and password
   Future<bool> login(String email, String password) async {
     try {
@@ -87,6 +141,13 @@ class FirebaseAuthService {
             '✓ User found in Firestore: ${utilisateur.prenom} ${utilisateur.nom}',
           );
           print('  Role: ${utilisateur.role.name}');
+
+          if (!utilisateur.isActive) {
+            print('✗ User account is disabled');
+            await _auth.signOut();
+            throw Exception('Account disabled. Please contact support.');
+          }
+
           _currentUser = utilisateur;
           return true;
         } else {
@@ -217,6 +278,11 @@ class FirebaseAuthService {
         }
 
         if (utilisateur != null) {
+          if (!utilisateur.isActive) {
+            await _auth.signOut();
+            await _googleSignIn.signOut();
+            throw Exception('Account disabled. Please contact support.');
+          }
           _currentUser = utilisateur;
           return true;
         }

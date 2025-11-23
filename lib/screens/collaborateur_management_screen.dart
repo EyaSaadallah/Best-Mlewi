@@ -39,9 +39,9 @@ class _CollaborateurManagementScreenState
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Delete'),
+        title: const Text('Confirm Deactivation'),
         content: Text(
-          'Are you sure you want to delete ${user.prenom} ${user.nom}?',
+          'Are you sure you want to deactivate ${user.prenom} ${user.nom}? They will no longer be able to log in.',
         ),
         actions: [
           TextButton(
@@ -51,7 +51,7 @@ class _CollaborateurManagementScreenState
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: const Text('Deactivate'),
           ),
         ],
       ),
@@ -63,7 +63,7 @@ class _CollaborateurManagementScreenState
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('User deleted successfully'),
+              content: Text('User deactivated successfully'),
               backgroundColor: Colors.green,
             ),
           );
@@ -73,7 +73,7 @@ class _CollaborateurManagementScreenState
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error deleting user: $e'),
+              content: Text('Error deactivating user: $e'),
               backgroundColor: Colors.red,
             ),
           );

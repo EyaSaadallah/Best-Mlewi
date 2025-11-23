@@ -10,6 +10,9 @@ class Utilisateur {
   final String telephone;
   final DateTime dateInscription;
   final Role role;
+  final bool isActive;
+  final bool isAffected;
+  final bool isAvailable;
 
   Utilisateur({
     required this.id,
@@ -20,6 +23,9 @@ class Utilisateur {
     required this.telephone,
     required this.dateInscription,
     required this.role,
+    this.isActive = true,
+    this.isAffected = false,
+    this.isAvailable = true,
   });
 
   /// Login with email and password

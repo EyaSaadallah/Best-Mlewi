@@ -26,7 +26,7 @@ class _DebugScreenState extends State<DebugScreen> {
     });
 
     try {
-      await DebugGerant.checkGerantStatus('benjdidiaomar@gmail.com');
+      await DebugGerant.checkGerantStatus('saadallaheya205@gmail.com');
       _addOutput('✓ Check complete');
     } catch (e) {
       _addOutput('✗ Error: $e');

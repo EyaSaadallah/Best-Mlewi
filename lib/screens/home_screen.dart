@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/firebase_auth_service.dart';
 import '../models/enums.dart';
+import '../models/utilisateur.dart';
 import 'pos_management_screen.dart';
 import 'menu_management_screen.dart';
 import 'collaborateur_management_screen.dart';
+import '../repositories/utilisateur_repository.dart';
 
 /// Home screen showing different content based on user role
 class HomeScreen extends StatefulWidget {
@@ -15,7 +17,57 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _authService = FirebaseAuthService();
+  final _userRepository = UtilisateurRepository();
   int _selectedIndex = 0;
+  bool _isUpdatingAvailability = false;
+
+  Future<void> _toggleAvailability(bool value) async {
+    final user = _authService.currentUser;
+    if (user == null) return;
+
+    setState(() => _isUpdatingAvailability = true);
+    try {
+      await _userRepository.updateIsAvailable(user.id, value);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Availability updated to ${value ? "Available" : "Unavailable"}',
+            ),
+          ),
+        );
+        // Force rebuild to fetch fresh data
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating availability: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingAvailability = false);
+      }
+    }
+  }
+
+  Widget _buildAvailabilitySwitch(bool currentStatus) {
+    return SwitchListTile(
+      title: const Text('Available for Assignment'),
+      subtitle: Text(
+        currentStatus
+            ? 'You are visible to managers'
+            : 'You are hidden from managers',
+      ),
+      value: currentStatus,
+      onChanged: _isUpdatingAvailability
+          ? null
+          : (value) {
+              _toggleAvailability(value);
+            },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,23 +108,32 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: _buildContent(user.role),
+      body: FutureBuilder<Utilisateur?>(
+        future: _userRepository.getByEmail(user.email),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final freshUser = snapshot.data ?? user;
+          return _buildContent(freshUser.role, freshUser);
+        },
+      ),
       bottomNavigationBar: _buildBottomNav(user.role),
     );
   }
 
-  Widget _buildContent(Role role) {
+  Widget _buildContent(Role role, Utilisateur user) {
     switch (role) {
       case Role.client:
         return _buildClientContent();
       case Role.gerant:
         return _buildGerantContent();
       case Role.coordinateur:
-        return _buildCoordinateurContent();
+        return _buildCoordinateurContent(user);
       case Role.livreur:
-        return _buildLivreurContent();
+        return _buildLivreurContent(user);
       case Role.collaborateur:
-        return _buildCollaborateurContent();
+        return _buildCollaborateurContent(user);
       case Role.visiteur:
         return _buildVisiteurContent();
     }
@@ -236,8 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCoordinateurContent() {
-    final user = _authService.currentUser;
+  Widget _buildCoordinateurContent(Utilisateur user) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -265,7 +325,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Welcome ${user?.prenom} ${user?.nom}',
+                  'Welcome ${user.prenom} ${user.nom}',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
@@ -273,6 +333,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          _buildAvailabilitySwitch(user.isAvailable),
           const SizedBox(height: 24),
           Text(
             'Coordinator Dashboard',
@@ -290,8 +352,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildLivreurContent() {
-    final user = _authService.currentUser;
+  Widget _buildLivreurContent(Utilisateur user) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -319,7 +380,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Welcome ${user?.prenom} ${user?.nom}',
+                  'Welcome ${user.prenom} ${user.nom}',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
@@ -327,6 +388,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          _buildAvailabilitySwitch(user.isAvailable),
           const SizedBox(height: 24),
           Text(
             'Delivery Dashboard',
@@ -351,8 +414,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCollaborateurContent() {
-    final user = _authService.currentUser;
+  Widget _buildCollaborateurContent(Utilisateur user) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -380,7 +442,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Welcome ${user?.prenom} ${user?.nom}',
+                  'Welcome ${user.prenom} ${user.nom}',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
@@ -388,6 +450,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          _buildAvailabilitySwitch(user.isAvailable),
           const SizedBox(height: 24),
           Text(
             'Collaborator Dashboard',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'config/firebase_config.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/forgot_password_screen.dart';
@@ -11,6 +12,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await FirebaseConfig.initialize();
+    await dotenv.load(fileName: ".env");
   } catch (e) {
     debugPrint('Firebase initialization error: $e');
   }

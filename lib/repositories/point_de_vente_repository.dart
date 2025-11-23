@@ -11,12 +11,12 @@ class PointDeVenteRepository extends FirebaseRepository<PointDeVente> {
   @override
   PointDeVente fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    
+
     // Handle collaborateurs list - assuming stored as list of maps or IDs
     // For now, returning empty list as implementation details for sub-collections/references are not fully clear
     // TODO: Implement full hydration of collaborateurs
-    final List<Collaborateur> collaborateurs = []; 
-    
+    final List<Collaborateur> collaborateurs = [];
+
     // Handle menu
     // TODO: Implement menu hydration
     final Menu? menu = null;
@@ -29,6 +29,12 @@ class PointDeVenteRepository extends FirebaseRepository<PointDeVente> {
       actif: data['actif'] as bool? ?? true,
       collaborateurs: collaborateurs,
       menu: menu,
+      coordinateurId: data['coordinateurId'] as int?,
+      collaborateurIds:
+          (data['collaborateurIds'] as List<dynamic>?)
+              ?.map((e) => e as int)
+              .toList() ??
+          [],
     );
   }
 
@@ -40,6 +46,8 @@ class PointDeVenteRepository extends FirebaseRepository<PointDeVente> {
       'adresse': item.adresse,
       'horaires': item.horaires,
       'actif': item.actif,
+      'coordinateurId': item.coordinateurId,
+      'collaborateurIds': item.collaborateurIds,
       // 'collaborateurs': item.collaborateurs.map((c) => c.id).toList(), // Example: storing IDs
       // 'menu': item.menu?.id, // Example: storing ID
     };
@@ -51,7 +59,7 @@ class PointDeVenteRepository extends FirebaseRepository<PointDeVente> {
         .collection(collectionName)
         .where('id', isEqualTo: id)
         .get();
-    
+
     if (snapshot.docs.isNotEmpty) {
       final docId = snapshot.docs.first.id;
       await update(docId, item);
@@ -66,7 +74,7 @@ class PointDeVenteRepository extends FirebaseRepository<PointDeVente> {
         .collection(collectionName)
         .where('id', isEqualTo: id)
         .get();
-    
+
     if (snapshot.docs.isNotEmpty) {
       final docId = snapshot.docs.first.id;
       await delete(docId);
