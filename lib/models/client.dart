@@ -3,6 +3,8 @@ import 'enums.dart';
 
 /// Client user model
 class Client extends Utilisateur {
+  final String? adresse;
+
   Client({
     required int id,
     required String nom,
@@ -14,6 +16,7 @@ class Client extends Utilisateur {
     bool isActive = true,
     bool isAffected = false,
     bool isAvailable = true,
+    this.adresse,
   }) : super(
          id: id,
          nom: nom,

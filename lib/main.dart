@@ -8,6 +8,7 @@ import 'screens/forgot_password_screen.dart';
 import 'screens/setup_screen.dart';
 import 'screens/debug_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/visitor_screen.dart';
 import 'services/notification_service.dart';
 
 @pragma('vm:entry-point')
@@ -43,8 +44,9 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      home: const VisitorScreen(),
       routes: {
+        '/visitor': (context) => const VisitorScreen(),
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignupScreen(),
         '/forgot-password': (context) => const ForgotPasswordScreen(),

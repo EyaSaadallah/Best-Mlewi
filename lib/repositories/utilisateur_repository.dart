@@ -97,6 +97,7 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           isActive: baseUser.isActive,
           isAffected: baseUser.isAffected,
           isAvailable: baseUser.isAvailable,
+          adresse: data['adresse'] as String?,
         );
       case Role.gerant:
         return Gerant(
@@ -168,7 +169,7 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
 
   @override
   Map<String, dynamic> toFirestore(Utilisateur user) {
-    return {
+    final data = {
       'id': user.id,
       'nom': user.nom,
       'prenom': user.prenom,
@@ -182,6 +183,13 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
       'isAvailable': user.isAvailable,
       'fcmToken': user.fcmToken,
     };
+
+    // Add address field if user is a Client
+    if (user is Client) {
+      data['adresse'] = user.adresse;
+    }
+
+    return data;
   }
 
   /// Update user by internal ID
