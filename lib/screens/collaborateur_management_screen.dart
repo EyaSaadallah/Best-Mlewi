@@ -18,6 +18,7 @@ class _CollaborateurManagementScreenState
     extends State<CollaborateurManagementScreen> {
   final _repository = UtilisateurRepository();
   late Future<List<Utilisateur>> _futureCollaborateurs;
+  Role? _selectedFilter; // null means 'All'
 
   @override
   void initState() {
@@ -82,6 +83,28 @@ class _CollaborateurManagementScreenState
     }
   }
 
+  Widget _buildFilterButton(String label, Role? role) {
+    final isSelected = _selectedFilter == role;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      child: FilterChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (bool selected) {
+          setState(() {
+            _selectedFilter = role;
+          });
+        },
+        selectedColor: Colors.deepPurple[100],
+        checkmarkColor: Colors.deepPurple,
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.deepPurple[900] : Colors.black87,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,141 +121,177 @@ class _CollaborateurManagementScreenState
         },
         child: const Icon(Icons.add),
       ),
-      body: FutureBuilder<List<Utilisateur>>(
-        future: _futureCollaborateurs,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-          final list = snapshot.data ?? [];
-          if (list.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      body: Column(
+        children: [
+          // Filter Section
+          Container(
+            padding: const EdgeInsets.all(8.0),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
                 children: [
-                  const Icon(
-                    Icons.people_outline,
-                    size: 64,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No staff members found',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleLarge?.copyWith(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const CollaborateurSignupScreen(),
-                        ),
-                      );
-                      _refreshList();
-                    },
-                    child: const Text('Add First Staff Member'),
-                  ),
+                  _buildFilterButton('All', null),
+                  _buildFilterButton('Collaborateurs', Role.collaborateur),
+                  _buildFilterButton('Livreurs', Role.livreur),
+                  _buildFilterButton('Coordinateurs', Role.coordinateur),
                 ],
               ),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(8),
-            itemCount: list.length,
-            itemBuilder: (context, index) {
-              final user = list[index];
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<Utilisateur>>(
+              future: _futureCollaborateurs,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
 
-              return Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    child: Text(
-                      user.prenom.isNotEmpty
-                          ? user.prenom[0].toUpperCase()
-                          : '?',
+                var list = snapshot.data ?? [];
+
+                // Apply local filtering
+                if (_selectedFilter != null) {
+                  list = list.where((u) => u.role == _selectedFilter).toList();
+                }
+
+                if (list.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.people_outline,
+                          size: 64,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No staff members found',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleLarge?.copyWith(color: Colors.grey),
+                        ),
+                        const SizedBox(height: 8),
+                        if (_selectedFilter ==
+                            null) // Only show add button if viewing all and empty
+                          ElevatedButton(
+                            onPressed: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const CollaborateurSignupScreen(),
+                                ),
+                              );
+                              _refreshList();
+                            },
+                            child: const Text('Add First Staff Member'),
+                          ),
+                      ],
                     ),
-                  ),
-                  title: Text('${user.prenom} ${user.nom}'),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(user.email),
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[100],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          user.role.name.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.blue[900],
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: list.length,
+                  itemBuilder: (context, index) {
+                    final user = list[index];
+
+                    return Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          child: Text(
+                            user.prenom.isNotEmpty
+                                ? user.prenom[0].toUpperCase()
+                                : '?',
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  isThreeLine: true,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () async {
-                          final updated = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  CollaborateurEditScreen(collaborateur: user),
+                        title: Text('${user.prenom} ${user.nom}'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(user.email),
+                            Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue[100],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                user.role.name.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.blue[900],
+                                ),
+                              ),
                             ),
-                          );
-                          if (updated != null && updated is Utilisateur) {
-                            try {
-                              await _repository.updateUser(updated);
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Staff member updated'),
-                                    backgroundColor: Colors.green,
+                          ],
+                        ),
+                        isThreeLine: true,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () async {
+                                final updated = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        CollaborateurEditScreen(
+                                          collaborateur: user,
+                                        ),
                                   ),
                                 );
-                                _refreshList();
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error updating: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            }
-                          }
-                        },
+                                if (updated != null && updated is Utilisateur) {
+                                  try {
+                                    await _repository.updateUser(updated);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Staff member updated'),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                      _refreshList();
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Error updating: $e'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteCollaborateur(user),
+                            ),
+                          ],
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _deleteCollaborateur(user),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

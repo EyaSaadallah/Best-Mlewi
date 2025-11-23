@@ -6,6 +6,7 @@ import 'pos_management_screen.dart';
 import 'menu_management_screen.dart';
 import 'collaborateur_management_screen.dart';
 import '../repositories/utilisateur_repository.dart';
+import '../services/notification_service.dart';
 
 /// Home screen showing different content based on user role
 class HomeScreen extends StatefulWidget {
@@ -18,6 +19,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _authService = FirebaseAuthService();
   final _userRepository = UtilisateurRepository();
+  final _notificationService = NotificationService();
+  final _homeNavigatorKey = GlobalKey<NavigatorState>();
+
   int _selectedIndex = 0;
   bool _isUpdatingAvailability = false;
 
@@ -75,36 +79,94 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('BestMiawi')),
+        appBar: AppBar(title: const Text('BestMlewi')),
         body: const Center(child: Text('Please login first')),
       );
     }
 
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+
+        // Handle nested navigation back press
+        if (_selectedIndex == 0 &&
+            _homeNavigatorKey.currentState != null &&
+            _homeNavigatorKey.currentState!.canPop()) {
+          _homeNavigatorKey.currentState!.pop();
+          return;
+        }
+
+        // If on other tabs, go back to home
+        if (_selectedIndex != 0) {
+          setState(() => _selectedIndex = 0);
+          return;
+        }
+
+        // If at root of home, let system handle exit (or show dialog)
+        // For now we allow exit if we are at root
+        // To actually exit, we need to manually trigger it or allow pop
+        // But since we set canPop: false, we are blocking it.
+        // We can use SystemNavigator.pop() or just return if we want to block.
+        // Let's allow pop if we are at root.
+        // Since we can't change canPop dynamically easily here without setState,
+        // we'll just leave it as is (blocking back button at root) or implement proper exit logic.
+        // For this requirement, blocking accidental exit is fine, or we can show a dialog.
+      },
+      child: Scaffold(
+        // No AppBar here, each tab/screen handles its own AppBar
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            _buildHomeTab(user),
+            _buildNotificationsTab(),
+            _buildProfileTab(user),
+          ],
+        ),
+        bottomNavigationBar: _buildBottomNav(user.role),
+      ),
+    );
+  }
+
+  Widget _buildHomeTab(Utilisateur user) {
+    return Navigator(
+      key: _homeNavigatorKey,
+      onGenerateRoute: (settings) {
+        Widget page;
+        switch (settings.name) {
+          case '/':
+            page = _buildDashboard(user);
+            break;
+          case '/pos':
+            page = const PosManagementScreen();
+            break;
+          case '/collaborateurs':
+            page = const CollaborateurManagementScreen();
+            break;
+          case '/menu':
+            page = const MenuManagementScreen();
+            break;
+          default:
+            page = _buildDashboard(user);
+        }
+        return MaterialPageRoute(builder: (_) => page);
+      },
+    );
+  }
+
+  Widget _buildDashboard(Utilisateur user) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('BestMiawi'),
+        title: const Text('BestMlewi'),
         actions: [
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Center(
               child: Text(
                 '${user.prenom} (${user.role.name})',
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(fontSize: 12),
               ),
             ),
-          ),
-          PopupMenuButton(
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                child: const Text('Logout'),
-                onTap: () async {
-                  await _authService.signOutGoogle();
-                  if (mounted) {
-                    Navigator.of(context).pushReplacementNamed('/login');
-                  }
-                },
-              ),
-            ],
           ),
         ],
       ),
@@ -118,7 +180,174 @@ class _HomeScreenState extends State<HomeScreen> {
           return _buildContent(freshUser.role, freshUser);
         },
       ),
-      bottomNavigationBar: _buildBottomNav(user.role),
+    );
+  }
+
+  Widget _buildNotificationsTab() {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Notifications')),
+      body: _buildNotifications(),
+    );
+  }
+
+  Widget _buildProfileTab(Utilisateur user) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Profile')),
+      body: FutureBuilder<Utilisateur?>(
+        future: _userRepository.getByEmail(user.email),
+        builder: (context, snapshot) {
+          final freshUser = snapshot.data ?? user;
+          return _buildProfile(freshUser);
+        },
+      ),
+    );
+  }
+
+  Widget _buildNotifications() {
+    final notifications = _notificationService.getNotifications();
+    if (notifications.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.notifications_none, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No notifications yet',
+              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+    return ListView.builder(
+      itemCount: notifications.length,
+      itemBuilder: (context, index) {
+        final notif = notifications[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: notif.type == NotificationType.error
+                  ? Colors.red[100]
+                  : Colors.blue[100],
+              child: Icon(
+                notif.type == NotificationType.error ? Icons.error : Icons.info,
+                color: notif.type == NotificationType.error
+                    ? Colors.red
+                    : Colors.blue,
+              ),
+            ),
+            title: Text(notif.message),
+            subtitle: Text(
+              notif.dateEnvoi.toString().split('.')[0],
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            trailing: !notif.lu
+                ? const CircleAvatar(radius: 4, backgroundColor: Colors.blue)
+                : null,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProfile(Utilisateur user) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          const CircleAvatar(
+            radius: 50,
+            backgroundColor: Colors.deepPurple,
+            child: Icon(Icons.person, size: 50, color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '${user.prenom} ${user.nom}',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.deepPurple[50],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.deepPurple[200]!),
+            ),
+            child: Text(
+              user.role.name.toUpperCase(),
+              style: TextStyle(
+                color: Colors.deepPurple[700],
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // Info Cards
+          _buildProfileItem(Icons.email, 'Email', user.email),
+          _buildProfileItem(Icons.phone, 'Phone', user.telephone),
+          _buildProfileItem(
+            Icons.calendar_today,
+            'Joined',
+            user.dateInscription.toString().split(' ')[0],
+          ),
+
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 24),
+
+          // Availability for staff
+          if (user.role != Role.client && user.role != Role.visiteur) ...[
+            _buildAvailabilitySwitch(user.isAvailable),
+            const SizedBox(height: 24),
+          ],
+
+          // Logout Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                await _authService.signOutGoogle();
+                if (mounted) {
+                  Navigator.of(context).pushReplacementNamed('/login');
+                }
+              },
+              icon: const Icon(Icons.logout),
+              label: const Text('Logout'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[50],
+                foregroundColor: Colors.red,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileItem(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.grey[600]),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+              Text(value, style: const TextStyle(fontSize: 16)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -212,7 +441,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'You have full access to the BestMiawi management system',
+                  'You have full access to the BestMlewi management system',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyMedium?.copyWith(color: Colors.white),
@@ -242,12 +471,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'Manage restaurant locations',
             Icons.location_on,
             () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const PosManagementScreen(),
-                ),
-              );
+              _homeNavigatorKey.currentState?.pushNamed('/pos');
             },
           ),
           const SizedBox(height: 12),
@@ -256,12 +480,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'Manage menus and dishes',
             Icons.restaurant,
             () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const MenuManagementScreen(),
-                ),
-              );
+              _homeNavigatorKey.currentState?.pushNamed('/menu');
             },
           ),
           const SizedBox(height: 12),
@@ -270,12 +489,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'Manage staff and team members',
             Icons.people,
             () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CollaborateurManagementScreen(),
-                ),
-              );
+              _homeNavigatorKey.currentState?.pushNamed('/collaborateurs');
             },
           ),
           const SizedBox(height: 12),
@@ -476,7 +690,7 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Welcome to BestMiawi',
+            'Welcome to BestMlewi',
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 24),
@@ -498,11 +712,27 @@ class _HomeScreenState extends State<HomeScreen> {
     VoidCallback onTap,
   ) {
     return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        leading: Icon(icon, size: 32),
-        title: Text(title),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward),
+        contentPadding: const EdgeInsets.all(16),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.deepPurple[50],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 32, color: Colors.deepPurple),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(subtitle),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: onTap,
       ),
     );
@@ -523,10 +753,17 @@ class _HomeScreenState extends State<HomeScreen> {
         BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
       ],
       currentIndex: _selectedIndex,
+      selectedItemColor: Colors.deepPurple,
+      unselectedItemColor: Colors.grey,
       onTap: (index) {
-        setState(() {
-          _selectedIndex = index;
-        });
+        if (index == _selectedIndex && index == 0) {
+          // If already on Home, pop to root of nested navigator
+          _homeNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+        } else {
+          setState(() {
+            _selectedIndex = index;
+          });
+        }
       },
     );
   }
