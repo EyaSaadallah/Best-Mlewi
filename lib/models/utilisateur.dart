@@ -13,6 +13,7 @@ class Utilisateur {
   final bool isActive;
   final bool isAffected;
   final bool isAvailable;
+  final String? fcmToken;
 
   Utilisateur({
     required this.id,
@@ -26,6 +27,7 @@ class Utilisateur {
     this.isActive = true,
     this.isAffected = false,
     this.isAvailable = true,
+    this.fcmToken,
   });
 
   /// Login with email and password

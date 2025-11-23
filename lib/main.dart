@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'config/firebase_config.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/login_screen.dart';
@@ -7,14 +8,25 @@ import 'screens/forgot_password_screen.dart';
 import 'screens/setup_screen.dart';
 import 'screens/debug_screen.dart';
 import 'screens/home_screen.dart';
+import 'services/notification_service.dart';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await FirebaseConfig.initialize();
+  print("Handling a background message: ${message.messageId}");
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await FirebaseConfig.initialize();
     await dotenv.load(fileName: ".env");
+
+    // Set up FCM
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    await NotificationService().initialize();
   } catch (e) {
-    debugPrint('Firebase initialization error: $e');
+    debugPrint('Initialization error: $e');
   }
   runApp(const MyApp());
 }

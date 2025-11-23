@@ -7,6 +7,7 @@ import 'menu_management_screen.dart';
 import 'collaborateur_management_screen.dart';
 import '../repositories/utilisateur_repository.dart';
 import '../services/notification_service.dart';
+import '../models/notification.dart' as notif_model;
 import 'profile_edit_screen.dart';
 
 /// Home screen showing different content based on user role
@@ -202,8 +203,71 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildNotificationsTab() {
+    final user = _authService.currentUser;
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
+      appBar: AppBar(
+        title: const Text('Notifications'),
+        actions: [
+          // Delete All button
+          if (user != null)
+            StreamBuilder<List<notif_model.Notification>>(
+              stream: _notificationService.getUserNotifications(user.id),
+              builder: (context, snapshot) {
+                final notifications = snapshot.data ?? [];
+                if (notifications.isEmpty) return const SizedBox.shrink();
+
+                return IconButton(
+                  icon: const Icon(Icons.delete_sweep),
+                  tooltip: 'Delete All',
+                  onPressed: () async {
+                    // Show confirmation dialog
+                    final shouldDeleteAll = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete All Notifications'),
+                        content: Text(
+                          'Are you sure you want to delete all ${notifications.length} notification(s)?',
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Delete All'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (shouldDeleteAll == true) {
+                      await _notificationService.deleteAllNotifications(
+                        user.id,
+                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('All notifications deleted'),
+                            duration: Duration(seconds: 2),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                );
+              },
+            ),
+        ],
+      ),
       body: _buildNotifications(),
     );
   }
@@ -222,49 +286,190 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildNotifications() {
-    final notifications = _notificationService.getNotifications();
-    if (notifications.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.notifications_none, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              'No notifications yet',
-              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+    final user = _authService.currentUser;
+    if (user == null) return const Center(child: Text('Please login'));
+
+    return StreamBuilder<List<notif_model.Notification>>(
+      stream: _notificationService.getUserNotifications(user.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final notifications = snapshot.data ?? [];
+
+        if (notifications.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.notifications_none,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No notifications yet',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
-    }
-    return ListView.builder(
-      itemCount: notifications.length,
-      itemBuilder: (context, index) {
-        final notif = notifications[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: notif.type == NotificationType.error
-                  ? Colors.red[100]
-                  : Colors.blue[100],
-              child: Icon(
-                notif.type == NotificationType.error ? Icons.error : Icons.info,
-                color: notif.type == NotificationType.error
-                    ? Colors.red
-                    : Colors.blue,
+          );
+        }
+
+        return ListView.builder(
+          itemCount: notifications.length,
+          itemBuilder: (context, index) {
+            final notif = notifications[index];
+            return Dismissible(
+              key: Key(notif.id.toString()),
+              background: Container(
+                color: Colors.red,
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 16),
+                child: const Icon(Icons.delete, color: Colors.white),
               ),
-            ),
-            title: Text(notif.message),
-            subtitle: Text(
-              notif.dateEnvoi.toString().split('.')[0],
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-            trailing: !notif.lu
-                ? const CircleAvatar(radius: 4, backgroundColor: Colors.blue)
-                : null,
-          ),
+              direction: DismissDirection.endToStart,
+              onDismissed: (direction) {
+                _notificationService.deleteNotification(notif.id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Notification deleted'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  leading: CircleAvatar(
+                    backgroundColor: notif.type == NotificationType.error
+                        ? Colors.red[100]
+                        : Colors.blue[100],
+                    child: Icon(
+                      notif.type == NotificationType.error
+                          ? Icons.error
+                          : Icons.info,
+                      color: notif.type == NotificationType.error
+                          ? Colors.red
+                          : Colors.blue,
+                    ),
+                  ),
+                  title: Text(
+                    notif.message,
+                    style: TextStyle(
+                      fontWeight: !notif.lu
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      notif.dateEnvoi.toString().split('.')[0],
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!notif.lu)
+                        Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          child: const CircleAvatar(
+                            radius: 4,
+                            backgroundColor: Colors.blue,
+                          ),
+                        ),
+                      // Delete button
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () async {
+                            // Show confirmation dialog
+                            final shouldDelete = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Delete Notification'),
+                                content: const Text(
+                                  'Are you sure you want to delete this notification?',
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(true),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: const Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (shouldDelete == true) {
+                              await _notificationService.deleteNotification(
+                                notif.id,
+                              );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Notification deleted'),
+                                    duration: Duration(seconds: 2),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.red[50],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.red,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  onTap: () {
+                    if (!notif.lu) {
+                      _notificationService.markAsRead(notif.id);
+                    }
+                  },
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -841,15 +1046,31 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final themeColor = _getRoleColor(role);
+    final user = _authService.currentUser;
 
     return BottomNavigationBar(
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+      items: [
+        const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
         BottomNavigationBarItem(
-          icon: Icon(Icons.notifications),
+          icon: StreamBuilder<int>(
+            stream: user != null
+                ? _notificationService.getUnreadCount(user.id)
+                : Stream.value(0),
+            builder: (context, snapshot) {
+              final count = snapshot.data ?? 0;
+              if (count == 0) return const Icon(Icons.notifications);
+              return Badge(
+                label: Text('$count'),
+                child: const Icon(Icons.notifications),
+              );
+            },
+          ),
           label: 'Notifications',
         ),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.person),
+          label: 'Profile',
+        ),
       ],
       currentIndex: _selectedIndex,
       selectedItemColor: themeColor,

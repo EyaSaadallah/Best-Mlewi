@@ -5,6 +5,8 @@ import '../repositories/utilisateur_repository.dart';
 import '../models/utilisateur.dart';
 import '../models/enums.dart';
 
+import '../services/notification_service.dart';
+
 class PosEditScreen extends StatefulWidget {
   final PointDeVente? pos;
 
@@ -17,8 +19,8 @@ class PosEditScreen extends StatefulWidget {
 class _PosEditScreenState extends State<PosEditScreen> {
   final _formKey = GlobalKey<FormState>();
   final _repository = PointDeVenteRepository();
-
   final _userRepository = UtilisateurRepository();
+  final _notificationService = NotificationService();
 
   late TextEditingController _nomController;
   late TextEditingController _adresseController;
@@ -121,17 +123,6 @@ class _PosEditScreenState extends State<PosEditScreen> {
       if (oldCoordinateurId != newCoordinateurId) {
         // If there was an old coordinator, free them
         if (oldCoordinateurId != null) {
-          // final oldUser = await _userRepository.getById(oldCoordinateurId);
-          // We can't update just one field easily with current repo,
-          // but we can fetch, modify, update.
-          // Ideally repo should support partial updates.
-          // For now, assuming we need to update the whole user object or add a method.
-          // Let's use a direct update helper if possible, or just update the object.
-          // Since we don't have partial update in repo interface yet, let's try to update the object.
-          // Actually, to avoid race conditions and complexity, let's add updateStatus to repo later.
-          // For now, let's assume we can update the user.
-          // Wait, `update` in repo takes a full object.
-          // Let's create a helper to toggle isAffected.
           await _updateUserAffectedStatus(oldCoordinateurId, false);
         }
         // If there is a new coordinator, mark them as affected
@@ -175,19 +166,18 @@ class _PosEditScreenState extends State<PosEditScreen> {
 
   Future<void> _updateUserAffectedStatus(int userId, bool isAffected) async {
     try {
-      // final user = await _userRepository.getById(userId);
-      // Create a copy with updated status
-      // Since models are immutable and we don't have copyWith on base class easily accessible for all subclasses without casting,
-      // we might need to cast or use a repo method.
-      // Best approach: Add `updateIsAffected` to UtilisateurRepository.
-      // Since I cannot modify repo interface in this step easily without breaking things,
-      // I will use a direct firestore update if possible or cast.
-      // Actually, let's just use the repo's update method and handle the casting/recreation.
-      // This is getting complicated.
-      // SIMPLER: Add `updateIsAffected` to `UtilisateurRepository`.
-      // I will do that in a separate step. For now, I'll assume it exists or implement it.
-      // Let's implement it in the repo first.
       await _userRepository.updateIsAffected(userId, isAffected);
+
+      // Create notification
+      final message = isAffected
+          ? 'You have been assigned to ${_nomController.text}'
+          : 'You have been removed from ${_nomController.text}';
+
+      await _notificationService.createNotification(
+        userId: userId,
+        message: message,
+        type: NotificationType.info,
+      );
     } catch (e) {
       debugPrint('Error updating user status: $e');
     }

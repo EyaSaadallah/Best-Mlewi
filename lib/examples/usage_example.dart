@@ -155,40 +155,44 @@ void exampleOrderManagement() {
 }
 
 /// Example: Managing notifications
-void exampleNotificationManagement() {
+Future<void> exampleNotificationManagement() async {
   final notificationService = NotificationService();
+  const userId = 1;
 
   // Create notifications
-  notificationService.createNotification(
-    1,
-    'Your order has been confirmed',
-    NotificationType.success,
+  await notificationService.createNotification(
+    userId: userId,
+    message: 'Your order has been confirmed',
+    type: NotificationType.success,
   );
 
   // Notification created: Your order has been confirmed
 
-  notificationService.createNotification(
-    2,
-    'Your order is being prepared',
-    NotificationType.info,
+  await notificationService.createNotification(
+    userId: userId,
+    message: 'Your order is being prepared',
+    type: NotificationType.info,
   );
 
-  notificationService.createNotification(
-    3,
-    'Delivery delayed by 15 minutes',
-    NotificationType.warning,
+  await notificationService.createNotification(
+    userId: userId,
+    message: 'Delivery delayed by 15 minutes',
+    type: NotificationType.warning,
   );
 
-  // Get unread notifications
-  notificationService.getUnreadNotifications();
-  // Unread notifications retrieved
+  // Get unread notifications count
+  notificationService.getUnreadCount(userId).listen((count) {
+    print('Unread count: $count');
+  });
 
   // Mark as read
-  notificationService.markAsRead(1);
+  // Note: In real app we would get ID from the stream
+  await notificationService.markAsRead(1);
 
-  // Get all notifications
-  notificationService.getNotifications();
-  // All notifications retrieved
+  // Get all notifications stream
+  notificationService.getUserNotifications(userId).listen((notifications) {
+    print('Notifications: ${notifications.length}');
+  });
 }
 
 /// Example: Managing sales points

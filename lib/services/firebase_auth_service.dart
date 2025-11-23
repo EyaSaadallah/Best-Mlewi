@@ -5,6 +5,7 @@ import '../models/enums.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../config/firebase_options.dart';
 import '../repositories/utilisateur_repository.dart';
+import 'notification_service.dart';
 
 /// Firebase authentication service
 class FirebaseAuthService {
@@ -12,6 +13,7 @@ class FirebaseAuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   final UtilisateurRepository _userRepository = UtilisateurRepository();
+  final NotificationService _notificationService = NotificationService();
 
   factory FirebaseAuthService() {
     return _instance;
@@ -55,6 +57,10 @@ class FirebaseAuthService {
 
         await _userRepository.create(utilisateur);
         _currentUser = utilisateur;
+
+        // Initialize FCM and save token
+        await _notificationService.initialize(userId: utilisateur.id);
+
         return true;
       }
       return false;
@@ -149,6 +155,10 @@ class FirebaseAuthService {
           }
 
           _currentUser = utilisateur;
+
+          // Initialize FCM and save token
+          await _notificationService.initialize(userId: utilisateur.id);
+
           return true;
         } else {
           print('✗ User NOT found in Firestore for email: $email');

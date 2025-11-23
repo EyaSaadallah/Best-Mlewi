@@ -80,6 +80,7 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
       isActive: data['isActive'] as bool? ?? true,
       isAffected: data['isAffected'] as bool? ?? false,
       isAvailable: data['isAvailable'] as bool? ?? true,
+      fcmToken: data['fcmToken'] as String?,
     );
 
     // Return appropriate user type based on role
@@ -179,6 +180,7 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
       'isActive': user.isActive,
       'isAffected': user.isAffected,
       'isAvailable': user.isAvailable,
+      'fcmToken': user.fcmToken,
     };
   }
 
@@ -258,6 +260,25 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
       }
     } catch (e) {
       throw Exception('Error updating user availability: $e');
+    }
+  }
+
+  /// Update user's FCM token
+  Future<void> updateFcmToken(int id, String? token) async {
+    try {
+      final snapshot = await firestore
+          .collection(collectionName)
+          .where('id', isEqualTo: id)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        await snapshot.docs.first.reference.update({'fcmToken': token});
+      } else {
+        throw Exception('User not found with id: $id');
+      }
+    } catch (e) {
+      throw Exception('Error updating FCM token: $e');
     }
   }
 }
