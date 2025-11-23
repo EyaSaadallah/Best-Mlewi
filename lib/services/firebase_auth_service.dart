@@ -199,17 +199,38 @@ class FirebaseAuthService {
     }
   }
 
-  /// Update password in Firebase Auth
+  /// Update password in Firebase Auth with re-authentication
   /// Note: Password is managed by Firebase Authentication, not stored in Firestore
-  Future<void> updatePassword(String newPassword) async {
+  Future<void> updatePasswordWithReauth(
+    String oldPassword,
+    String newPassword,
+  ) async {
     try {
       final user = _auth.currentUser;
       if (user == null) {
         throw Exception('No user currently logged in');
       }
 
+      final email = user.email;
+      if (email == null) {
+        throw Exception('User email not found');
+      }
+
+      // Re-authenticate user
+      final credential = EmailAuthProvider.credential(
+        email: email,
+        password: oldPassword,
+      );
+
+      await user.reauthenticateWithCredential(credential);
+
       // Update password in Firebase Authentication
       await user.updatePassword(newPassword);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password') {
+        throw Exception('The old password provided is incorrect.');
+      }
+      throw Exception('Password update failed: ${e.message}');
     } catch (e) {
       throw Exception('Password update failed: $e');
     }

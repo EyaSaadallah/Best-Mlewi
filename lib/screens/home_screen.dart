@@ -7,6 +7,7 @@ import 'menu_management_screen.dart';
 import 'collaborateur_management_screen.dart';
 import '../repositories/utilisateur_repository.dart';
 import '../services/notification_service.dart';
+import 'profile_edit_screen.dart';
 
 /// Home screen showing different content based on user role
 class HomeScreen extends StatefulWidget {
@@ -71,6 +72,23 @@ class _HomeScreenState extends State<HomeScreen> {
               _toggleAvailability(value);
             },
     );
+  }
+
+  Color _getRoleColor(Role role) {
+    switch (role) {
+      case Role.gerant:
+        return Colors.deepPurple;
+      case Role.coordinateur:
+        return Colors.orange;
+      case Role.livreur:
+        return Colors.green;
+      case Role.collaborateur:
+        return Colors.blue;
+      case Role.client:
+      case Role.visiteur:
+      default:
+        return Colors.deepPurple;
+    }
   }
 
   @override
@@ -253,14 +271,36 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProfile(Utilisateur user) {
+    final themeColor = _getRoleColor(user.role);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          const CircleAvatar(
-            radius: 50,
-            backgroundColor: Colors.deepPurple,
-            child: Icon(Icons.person, size: 50, color: Colors.white),
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 50,
+                backgroundColor: themeColor,
+                child: Text(
+                  user.prenom.isNotEmpty ? user.prenom[0].toUpperCase() : '?',
+                  style: const TextStyle(fontSize: 40, color: Colors.white),
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: CircleAvatar(
+                  backgroundColor: Colors.white,
+                  radius: 18,
+                  child: IconButton(
+                    icon: const Icon(Icons.edit, size: 18),
+                    color: themeColor,
+                    onPressed: () => _handleEditProfile(user),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Text(
@@ -271,14 +311,14 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.deepPurple[50],
+              color: themeColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.deepPurple[200]!),
+              border: Border.all(color: themeColor.withOpacity(0.3)),
             ),
             child: Text(
               user.role.name.toUpperCase(),
               style: TextStyle(
-                color: Colors.deepPurple[700],
+                color: themeColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
@@ -299,8 +339,10 @@ class _HomeScreenState extends State<HomeScreen> {
           const Divider(),
           const SizedBox(height: 24),
 
-          // Availability for staff
-          if (user.role != Role.client && user.role != Role.visiteur) ...[
+          // Availability for staff (except Gerant)
+          if (user.role != Role.client &&
+              user.role != Role.visiteur &&
+              user.role != Role.gerant) ...[
             _buildAvailabilitySwitch(user.isAvailable),
             const SizedBox(height: 24),
           ],
@@ -327,6 +369,55 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _handleEditProfile(Utilisateur user) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ProfileEditScreen(user: user)),
+    );
+
+    if (result != null && result is Map<String, dynamic>) {
+      try {
+        // Update user details
+        final updatedUser = Utilisateur(
+          id: user.id,
+          nom: result['nom'],
+          prenom: result['prenom'],
+          email: user.email,
+          motDePasse: user.motDePasse, // Password not stored here
+          telephone: result['telephone'],
+          dateInscription: user.dateInscription,
+          role: user.role,
+          isActive: user.isActive,
+          isAffected: user.isAffected,
+          isAvailable: user.isAvailable,
+        );
+
+        await _userRepository.updateUser(updatedUser);
+
+        // Update password if provided
+        if (result['password'] != null && result['oldPassword'] != null) {
+          await _authService.updatePasswordWithReauth(
+            result['oldPassword'],
+            result['password'],
+          );
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile updated successfully')),
+          );
+          setState(() {}); // Refresh UI
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error updating profile: $e')));
+        }
+      }
+    }
   }
 
   Widget _buildProfileItem(IconData icon, String label, String value) {
@@ -560,6 +651,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'Monitor order preparation',
             Icons.track_changes,
             () {},
+            color: Colors.orange,
           ),
         ],
       ),
@@ -615,6 +707,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'Track current deliveries',
             Icons.local_shipping,
             () {},
+            color: Colors.green,
           ),
           const SizedBox(height: 12),
           _buildMenuCard(
@@ -622,6 +715,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'Update delivery location',
             Icons.location_on,
             () {},
+            color: Colors.green,
           ),
         ],
       ),
@@ -677,6 +771,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'Manage your availability',
             Icons.calendar_today,
             () {},
+            color: Colors.blue,
           ),
         ],
       ),
@@ -709,8 +804,10 @@ class _HomeScreenState extends State<HomeScreen> {
     String title,
     String subtitle,
     IconData icon,
-    VoidCallback onTap,
-  ) {
+    VoidCallback onTap, {
+    Color? color,
+  }) {
+    final themeColor = color ?? Colors.deepPurple;
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -719,10 +816,10 @@ class _HomeScreenState extends State<HomeScreen> {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.deepPurple[50],
+            color: themeColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, size: 32, color: Colors.deepPurple),
+          child: Icon(icon, size: 32, color: themeColor),
         ),
         title: Text(
           title,
@@ -743,6 +840,8 @@ class _HomeScreenState extends State<HomeScreen> {
       return null;
     }
 
+    final themeColor = _getRoleColor(role);
+
     return BottomNavigationBar(
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
@@ -753,7 +852,7 @@ class _HomeScreenState extends State<HomeScreen> {
         BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
       ],
       currentIndex: _selectedIndex,
-      selectedItemColor: Colors.deepPurple,
+      selectedItemColor: themeColor,
       unselectedItemColor: Colors.grey,
       onTap: (index) {
         if (index == _selectedIndex && index == 0) {
