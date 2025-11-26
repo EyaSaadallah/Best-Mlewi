@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
-//hello
+
 /// Service for uploading images to ImageKit
 class ImageKitService {
   static final ImageKitService _instance = ImageKitService._internal();
