@@ -3,6 +3,7 @@ import '../models/utilisateur.dart';
 
 import '../models/enums.dart';
 import '../repositories/utilisateur_repository.dart';
+import '../services/email_service.dart';
 import 'collaborateur_signup_screen.dart';
 import 'collaborateur_edit_screen.dart';
 
@@ -251,13 +252,38 @@ class _CollaborateurManagementScreenState
                                 );
                                 if (updated != null && updated is Utilisateur) {
                                   try {
+                                    // Check if role has changed
+                                    final roleChanged =
+                                        user.role != updated.role;
+                                    final oldRoleName = user.role.name
+                                        .toUpperCase();
+                                    final newRoleName = updated.role.name
+                                        .toUpperCase();
+
                                     await _repository.updateUser(updated);
+
+                                    // Send email notification if role changed
+                                    if (roleChanged) {
+                                      await EmailService()
+                                          .sendRoleChangeNotification(
+                                            toEmail: updated.email,
+                                            firstName: updated.prenom,
+                                            lastName: updated.nom,
+                                            oldRole: oldRoleName,
+                                            newRole: newRoleName,
+                                          );
+                                    }
+
                                     if (mounted) {
                                       ScaffoldMessenger.of(
                                         context,
                                       ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Staff member updated'),
+                                        SnackBar(
+                                          content: Text(
+                                            roleChanged
+                                                ? 'Staff member updated and notification sent'
+                                                : 'Staff member updated',
+                                          ),
                                           backgroundColor: Colors.green,
                                         ),
                                       );

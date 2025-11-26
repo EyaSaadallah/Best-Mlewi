@@ -107,4 +107,56 @@ Best Mlewi Management
       htmlBody: htmlBody,
     );
   }
+
+  /// Send role change notification email to collaborator
+  Future<bool> sendRoleChangeNotification({
+    required String toEmail,
+    required String firstName,
+    required String lastName,
+    required String oldRole,
+    required String newRole,
+  }) async {
+    final subject = 'Your Role Has Been Updated - Best Mlewi';
+
+    final textBody =
+        '''
+Hello $firstName $lastName,
+
+Your role in the Best Mlewi system has been updated.
+
+Role Change Details:
+--------------------------------
+Previous Role: $oldRole
+New Role: $newRole
+Updated At: ${DateTime.now().toString().split('.')[0]}
+--------------------------------
+
+If you did not expect this change or have any questions, please contact your administrator.
+
+Best regards,
+Best Mlewi Management
+''';
+
+    final htmlBody =
+        '''
+<h1>Role Update Notification</h1>
+<p>Hello <b>$firstName $lastName</b>,</p>
+<p>Your role in the Best Mlewi system has been updated.</p>
+<div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+  <h3>Role Change Details:</h3>
+  <p><b>Previous Role:</b> <span style="color: #d32f2f;">$oldRole</span></p>
+  <p><b>New Role:</b> <span style="color: #388e3c;">$newRole</span></p>
+  <p><b>Updated At:</b> ${DateTime.now().toString().split('.')[0]}</p>
+</div>
+<p><i>If you did not expect this change or have any questions, please contact your administrator.</i></p>
+<p>Best regards,<br>Best Mlewi Management</p>
+''';
+
+    return await sendEmail(
+      toEmail: toEmail,
+      subject: subject,
+      body: textBody,
+      htmlBody: htmlBody,
+    );
+  }
 }

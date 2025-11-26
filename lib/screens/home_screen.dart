@@ -564,7 +564,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () async {
                 await _authService.signOutGoogle();
                 if (mounted) {
-                  Navigator.of(context).pushReplacementNamed('/login');
+                  Navigator.of(context).pushReplacementNamed('/visitor');
                 }
               },
               icon: const Icon(Icons.logout),

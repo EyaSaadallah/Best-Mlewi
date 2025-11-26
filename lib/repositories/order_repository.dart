@@ -6,48 +6,97 @@ import '../models/enums.dart';
 import 'firebase_repository.dart';
 
 /// Repository for managing Commande documents in Firestore
-class CommandeRepository extends FirebaseRepository<Commande> {
+class OrderRepository extends FirebaseRepository<Commande> {
   @override
   String get collectionName => 'commandes';
 
-  /// Get commands by status
+  /// Create order with client ID
+  Future<String> createOrderWithClientId(Commande order, int clientId) async {
+    try {
+      final orderData = toFirestore(order);
+      orderData['clientId'] = clientId;
+      orderData['createdAt'] = FieldValue.serverTimestamp();
+
+      final doc = await firestore.collection(collectionName).add(orderData);
+      return doc.id;
+    } catch (e) {
+      throw Exception('Error creating order: $e');
+    }
+  }
+
+  /// Get orders by client ID
+  Future<List<Commande>> getOrdersByClientId(int clientId) async {
+    try {
+      final snapshot = await firestore
+          .collection(collectionName)
+          .where('clientId', isEqualTo: clientId)
+          .orderBy('dateCreation', descending: true)
+          .get();
+      return snapshot.docs.map((doc) => fromFirestore(doc)).toList();
+    } catch (e) {
+      throw Exception('Error fetching orders by client ID: $e');
+    }
+  }
+
+  /// Get orders by status
   Future<List<Commande>> getByStatus(StatusCommande status) async {
     try {
       final snapshot = await firestore
           .collection(collectionName)
           .where('statut', isEqualTo: status.name)
+          .orderBy('dateCreation', descending: true)
           .get();
       return snapshot.docs.map((doc) => fromFirestore(doc)).toList();
     } catch (e) {
-      throw Exception('Error fetching commands by status: $e');
+      throw Exception('Error fetching orders by status: $e');
     }
   }
 
-  /// Get commands by date range
-  Future<List<Commande>> getByDateRange(DateTime start, DateTime end) async {
+  /// Get orders by client ID and status
+  Future<List<Commande>> getOrdersByClientIdAndStatus(
+    int clientId,
+    StatusCommande status,
+  ) async {
     try {
       final snapshot = await firestore
           .collection(collectionName)
-          .where(
-            'dateCreation',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(start),
-          )
-          .where('dateCreation', isLessThanOrEqualTo: Timestamp.fromDate(end))
+          .where('clientId', isEqualTo: clientId)
+          .where('statut', isEqualTo: status.name)
+          .orderBy('dateCreation', descending: true)
           .get();
       return snapshot.docs.map((doc) => fromFirestore(doc)).toList();
     } catch (e) {
-      throw Exception('Error fetching commands by date range: $e');
+      throw Exception('Error fetching orders: $e');
     }
   }
 
-  /// Update command status
+  /// Update order status
   Future<void> updateStatus(String id, StatusCommande newStatus) async {
     try {
       await firestore.collection(collectionName).doc(id).update({
         'statut': newStatus.name,
       });
     } catch (e) {
-      throw Exception('Error updating command status: $e');
+      throw Exception('Error updating order status: $e');
+    }
+  }
+
+  /// Update order by internal ID
+  Future<void> updateOrder(Commande order) async {
+    try {
+      final snapshot = await firestore
+          .collection(collectionName)
+          .where('id', isEqualTo: order.id)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        await snapshot.docs.first.reference.update(toFirestore(order));
+      } else {
+        throw Exception('Order not found with id: ${order.id}');
+      }
+    } catch (e) {
+      throw Exception('Error updating order: $e');
     }
   }
 
@@ -104,14 +153,14 @@ class CommandeRepository extends FirebaseRepository<Commande> {
   }
 
   @override
-  Map<String, dynamic> toFirestore(Commande commande) {
+  Map<String, dynamic> toFirestore(Commande order) {
     return {
-      'id': commande.id,
-      'dateCreation': Timestamp.fromDate(commande.dateCreation),
-      'total': commande.total,
-      'totalWithTax': commande.totalWithTax,
-      'statut': commande.statut.name,
-      'lignes': commande.lignes
+      'id': order.id,
+      'dateCreation': Timestamp.fromDate(order.dateCreation),
+      'total': order.total,
+      'totalWithTax': order.totalWithTax,
+      'statut': order.statut.name,
+      'lignes': order.lignes
           .map(
             (l) => {
               'id': l.id,
@@ -125,13 +174,12 @@ class CommandeRepository extends FirebaseRepository<Commande> {
                 'prix': l.plat.prix,
                 'categorie': l.plat.categorie,
                 'disponible': l.plat.disponible,
-                'imageUrl': l.plat.imageUrl,
               },
             },
           )
           .toList(),
-      'livreurId': commande.livreurId,
-      'posId': commande.posId,
+      'livreurId': order.livreurId,
+      'posId': order.posId,
     };
   }
 }

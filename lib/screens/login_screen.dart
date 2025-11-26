@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/firebase_auth_service.dart';
 import '../utils/validators.dart';
+import '../models/enums.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 import 'setup_screen.dart';
@@ -59,7 +60,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (success) {
         if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/home');
+          // Check user role and redirect accordingly
+          final currentUser = _authService.currentUser;
+          if (currentUser != null && currentUser.role == Role.client) {
+            // Redirect clients to visitor screen
+            Navigator.of(context).pushReplacementNamed('/visitor');
+          } else {
+            // Redirect other roles to home screen
+            Navigator.of(context).pushReplacementNamed('/home');
+          }
         }
       } else {
         setState(() {
@@ -90,7 +99,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (success) {
         if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/home');
+          // Check user role and redirect accordingly
+          final currentUser = _authService.currentUser;
+          if (currentUser != null && currentUser.role == Role.client) {
+            // Redirect clients to visitor screen
+            Navigator.of(context).pushReplacementNamed('/visitor');
+          } else {
+            // Redirect other roles to home screen
+            Navigator.of(context).pushReplacementNamed('/home');
+          }
         }
       } else {
         setState(() {

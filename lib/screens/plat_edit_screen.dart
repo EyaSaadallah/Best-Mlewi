@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../models/plat.dart';
+import '../services/imagekit_service.dart';
 
 class PlatEditScreen extends StatefulWidget {
   final Plat? plat;
@@ -12,12 +15,17 @@ class PlatEditScreen extends StatefulWidget {
 
 class _PlatEditScreenState extends State<PlatEditScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _imagePicker = ImagePicker();
+  final _imageKitService = ImageKitService();
 
   late TextEditingController _nomController;
   late TextEditingController _descriptionController;
   late TextEditingController _prixController;
   late TextEditingController _categorieController;
+  late TextEditingController _imageUrlController;
   bool _disponible = true;
+  File? _selectedImage;
+  bool _isUploadingImage = false;
 
   @override
   void initState() {
@@ -32,6 +40,9 @@ class _PlatEditScreenState extends State<PlatEditScreen> {
     _categorieController = TextEditingController(
       text: widget.plat?.categorie ?? '',
     );
+    _imageUrlController = TextEditingController(
+      text: widget.plat?.imageUrl ?? '',
+    );
     _disponible = widget.plat?.disponible ?? true;
   }
 
@@ -41,11 +52,79 @@ class _PlatEditScreenState extends State<PlatEditScreen> {
     _descriptionController.dispose();
     _prixController.dispose();
     _categorieController.dispose();
+    _imageUrlController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImage = File(pickedFile.path);
+          _isUploadingImage = true;
+        });
+
+        // Upload to ImageKit
+        try {
+          final fileName = 'dish_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final imageUrl = await _imageKitService.uploadImage(
+            File(pickedFile.path),
+            fileName,
+          );
+
+          if (mounted) {
+            setState(() {
+              _imageUrlController.text = imageUrl;
+              _isUploadingImage = false;
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Image uploaded successfully to ImageKit'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        } catch (uploadError) {
+          if (mounted) {
+            setState(() {
+              _isUploadingImage = false;
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error uploading to ImageKit: $uploadError'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error picking image: $e')));
+      }
+    }
   }
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_imageUrlController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select an image for the dish')),
+      );
+      return;
+    }
 
     final prix = double.tryParse(_prixController.text) ?? 0.0;
 
@@ -56,6 +135,7 @@ class _PlatEditScreenState extends State<PlatEditScreen> {
       prix: prix,
       categorie: _categorieController.text,
       disponible: _disponible,
+      imageUrl: _imageUrlController.text,
     );
 
     Navigator.pop(context, plat);
@@ -131,6 +211,65 @@ class _PlatEditScreenState extends State<PlatEditScreen> {
                 title: const Text('Available'),
                 value: _disponible,
                 onChanged: (value) => setState(() => _disponible = value),
+              ),
+              const SizedBox(height: 24),
+              // Image upload section
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    if (_selectedImage != null)
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            _selectedImage!,
+                            height: 200,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      )
+                    else if (_imageUrlController.text.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            _imageUrlController.text,
+                            height: 200,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                height: 200,
+                                color: Colors.grey[200],
+                                child: const Center(
+                                  child: Icon(Icons.image_not_supported),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: ElevatedButton.icon(
+                        onPressed: _pickImage,
+                        icon: const Icon(Icons.image),
+                        label: const Text('Upload Image'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurple,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
               ElevatedButton(

@@ -1,23 +1,26 @@
 import 'enums.dart';
 import 'ligne_commande.dart';
-import 'livraison.dart';
 
 /// Command/Order model
 class Commande {
   final int id;
   final DateTime dateCreation;
   final double total;
+  final double totalWithTax;
   final StatusCommande statut;
   final List<LigneCommande> lignes;
-  final Livraison? livraison;
+  final int? livreurId;
+  final int? posId;
 
   Commande({
     required this.id,
     required this.dateCreation,
     required this.total,
+    required this.totalWithTax,
     required this.statut,
     required this.lignes,
-    this.livraison,
+    this.livreurId,
+    this.posId,
   });
 
   /// Add line item to command

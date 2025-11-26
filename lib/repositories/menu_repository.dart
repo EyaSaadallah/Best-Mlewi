@@ -54,6 +54,7 @@ class MenuRepository extends FirebaseRepository<Menu> {
         prix: (platMap['prix'] as num?)?.toDouble() ?? 0.0,
         categorie: platMap['categorie'] as String? ?? '',
         disponible: platMap['disponible'] as bool? ?? false,
+        imageUrl: platMap['imageUrl'] as String? ?? '',
       );
     }).toList();
 
@@ -78,6 +79,7 @@ class MenuRepository extends FirebaseRepository<Menu> {
               'prix': p.prix,
               'categorie': p.categorie,
               'disponible': p.disponible,
+              'imageUrl': p.imageUrl,
             },
           )
           .toList(),

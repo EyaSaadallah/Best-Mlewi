@@ -241,6 +241,7 @@ class _MenuEditScreenState extends State<MenuEditScreen> {
                                     prix: plat.prix,
                                     categorie: plat.categorie,
                                     disponible: val,
+                                    imageUrl: plat.imageUrl,
                                   );
                                 });
                               },

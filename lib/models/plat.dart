@@ -6,6 +6,7 @@ class Plat {
   final double prix;
   final String categorie;
   final bool disponible;
+  final String imageUrl;
 
   Plat({
     required this.id,
@@ -14,6 +15,7 @@ class Plat {
     required this.prix,
     required this.categorie,
     required this.disponible,
+    required this.imageUrl,
   });
 
   /// Change availability status
