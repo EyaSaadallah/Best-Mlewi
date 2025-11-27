@@ -10,6 +10,7 @@ import '../repositories/utilisateur_repository.dart';
 import '../services/notification_service.dart';
 import '../models/notification.dart' as notif_model;
 import 'profile_edit_screen.dart';
+import '../widgets/gerant_dashboard.dart';
 
 /// Home screen showing different content based on user role
 class HomeScreen extends StatefulWidget {
@@ -769,6 +770,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 32),
+
+          // Dashboard with Statistics and Charts
+          const GerantDashboard(),
+          const SizedBox(height: 32),
+
           // Dashboard title
           Text(
             'Management Dashboard',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../models/plat.dart';
@@ -68,44 +69,7 @@ class _PlatEditScreenState extends State<PlatEditScreen> {
       if (pickedFile != null) {
         setState(() {
           _selectedImage = File(pickedFile.path);
-          _isUploadingImage = true;
         });
-
-        // Upload to ImageKit
-        try {
-          final fileName = 'dish_${DateTime.now().millisecondsSinceEpoch}.jpg';
-          final imageUrl = await _imageKitService.uploadImage(
-            File(pickedFile.path),
-            fileName,
-          );
-
-          if (mounted) {
-            setState(() {
-              _imageUrlController.text = imageUrl;
-              _isUploadingImage = false;
-            });
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Image uploaded successfully to ImageKit'),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          }
-        } catch (uploadError) {
-          if (mounted) {
-            setState(() {
-              _isUploadingImage = false;
-            });
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error uploading to ImageKit: $uploadError'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -116,14 +80,55 @@ class _PlatEditScreenState extends State<PlatEditScreen> {
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_imageUrlController.text.isEmpty) {
+    // Check if image is selected (either new or existing)
+    if (_selectedImage == null && _imageUrlController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select an image for the dish')),
       );
       return;
+    }
+
+    // Upload image if a new one was selected
+    if (_selectedImage != null) {
+      setState(() => _isUploadingImage = true);
+
+      try {
+        // Delete old image if we're editing and replacing the image
+        if (widget.plat != null && widget.plat!.imageUrl.isNotEmpty) {
+          try {
+            await _imageKitService.deleteImage(widget.plat!.imageUrl);
+          } catch (deleteError) {
+            debugPrint('Error deleting old image: $deleteError');
+            // Continue with upload even if delete fails
+          }
+        }
+
+        final fileName = 'dish_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final imageUrl = await _imageKitService.uploadImage(
+          _selectedImage!,
+          fileName,
+        );
+
+        setState(() {
+          _imageUrlController.text = imageUrl;
+          _isUploadingImage = false;
+        });
+      } catch (uploadError) {
+        setState(() => _isUploadingImage = false);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error uploading image: $uploadError'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return; // Don't save if upload failed
+      }
     }
 
     final prix = double.tryParse(_prixController.text) ?? 0.0;
@@ -259,9 +264,9 @@ class _PlatEditScreenState extends State<PlatEditScreen> {
                     Padding(
                       padding: const EdgeInsets.all(12),
                       child: ElevatedButton.icon(
-                        onPressed: _pickImage,
+                        onPressed: _isUploadingImage ? null : _pickImage,
                         icon: const Icon(Icons.image),
-                        label: const Text('Upload Image'),
+                        label: const Text('Select Image'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.deepPurple,
                           foregroundColor: Colors.white,
@@ -273,11 +278,29 @@ class _PlatEditScreenState extends State<PlatEditScreen> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _save,
+                onPressed: _isUploadingImage ? null : _save,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: const Text('Save Dish'),
+                child: _isUploadingImage
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Text('Uploading...'),
+                        ],
+                      )
+                    : const Text('Save Dish'),
               ),
             ],
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/menu.dart';
 import '../models/plat.dart';
 import '../repositories/menu_repository.dart';
+import '../services/imagekit_service.dart';
 import 'plat_edit_screen.dart';
 
 class MenuEditScreen extends StatefulWidget {
@@ -145,10 +146,30 @@ class _MenuEditScreenState extends State<MenuEditScreen> {
     }
   }
 
-  void _deletePlat(Plat plat) {
+  Future<void> _deletePlat(Plat plat) async {
+    // Delete image from ImageKit if it exists
+    if (plat.imageUrl.isNotEmpty) {
+      try {
+        final imageKitService = ImageKitService();
+        await imageKitService.deleteImage(plat.imageUrl);
+      } catch (e) {
+        // Log error but continue with dish deletion
+        debugPrint('Error deleting image from ImageKit: $e');
+      }
+    }
+
     setState(() {
       _plats.remove(plat);
     });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Dish deleted'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override

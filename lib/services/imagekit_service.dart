@@ -85,6 +85,88 @@ class ImageKitService {
     }
   }
 
+  /// Delete image from ImageKit
+  /// Takes the full ImageKit URL and extracts the fileId to delete
+  Future<void> deleteImage(String imageUrl) async {
+    try {
+      if (_publicKey.isEmpty || _privateKey.isEmpty) {
+        throw Exception('ImageKit credentials not configured in .env file');
+      }
+
+      // Extract fileId from URL
+      // ImageKit URL format: https://ik.imagekit.io/your_imagekit_id/path/to/file.jpg
+      // We need to get the fileId using the Management API
+      final fileId = await _getFileIdFromUrl(imageUrl);
+
+      if (fileId == null) {
+        debugPrint('Could not extract fileId from URL: $imageUrl');
+        return;
+      }
+
+      // Delete using Management API
+      final deleteUrl = 'https://api.imagekit.io/v1/files/$fileId';
+
+      final response = await http
+          .delete(
+            Uri.parse(deleteUrl),
+            headers: {
+              'Authorization': 'Basic ${_encodeCredentials(_privateKey)}',
+            },
+          )
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              throw Exception('Image delete timeout');
+            },
+          );
+
+      if (response.statusCode == 204 || response.statusCode == 200) {
+        debugPrint('ImageKit image deleted successfully: $imageUrl');
+      } else {
+        debugPrint(
+          'ImageKit delete failed: ${response.statusCode}\nResponse: ${response.body}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Image delete error: $e');
+      // Don't throw, just log - we don't want to block dish deletion if image deletion fails
+    }
+  }
+
+  /// Get fileId from ImageKit URL using the List Files API
+  Future<String?> _getFileIdFromUrl(String imageUrl) async {
+    try {
+      // Extract the file path from the URL
+      final uri = Uri.parse(imageUrl);
+      final path = uri.path;
+
+      // Use List Files API to search for the file
+      final listUrl = 'https://api.imagekit.io/v1/files';
+      final queryParams = {'searchQuery': 'name="${path.split('/').last}"'};
+
+      final response = await http
+          .get(
+            Uri.parse(listUrl).replace(queryParameters: queryParams),
+            headers: {
+              'Authorization': 'Basic ${_encodeCredentials(_privateKey)}',
+            },
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as List<dynamic>;
+        if (jsonResponse.isNotEmpty) {
+          final firstFile = jsonResponse[0] as Map<String, dynamic>;
+          return firstFile['fileId'] as String?;
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error getting fileId: $e');
+      return null;
+    }
+  }
+
   /// Encode credentials for Basic Auth
   String _encodeCredentials(String privateKey) {
     return base64Encode(utf8.encode('$privateKey:'));
