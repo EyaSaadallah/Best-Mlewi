@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import '../repositories/menu_repository.dart';
+import '../repositories/utilisateur_repository.dart';
 import '../models/menu.dart';
 import '../models/plat.dart';
 import '../services/firebase_auth_service.dart';
@@ -131,10 +132,20 @@ class _VisitorScreenState extends State<VisitorScreen> {
               CircleAvatar(
                 radius: 50,
                 backgroundColor: themeColor,
-                child: Text(
-                  user.prenom.isNotEmpty ? user.prenom[0].toUpperCase() : '?',
-                  style: const TextStyle(fontSize: 40, color: Colors.white),
-                ),
+                backgroundImage: user.imageUrl != null
+                    ? NetworkImage(user.imageUrl!)
+                    : null,
+                child: user.imageUrl == null
+                    ? Text(
+                        user.prenom.isNotEmpty
+                            ? user.prenom[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                          fontSize: 40,
+                          color: Colors.white,
+                        ),
+                      )
+                    : null,
               ),
               Positioned(
                 bottom: 0,
@@ -152,7 +163,72 @@ class _VisitorScreenState extends State<VisitorScreen> {
                           builder: (_) => ProfileEditScreen(user: user),
                         ),
                       );
-                      if (result != null) setState(() {});
+
+                      if (result != null && result is Map<String, dynamic>) {
+                        try {
+                          Utilisateur updatedUser;
+                          if (user.role == Role.client) {
+                            updatedUser = Client(
+                              id: user.id,
+                              nom: result['nom'],
+                              prenom: result['prenom'],
+                              email: user.email,
+                              motDePasse: user.motDePasse,
+                              telephone: result['telephone'],
+                              dateInscription: user.dateInscription,
+                              isActive: user.isActive,
+                              isAffected: user.isAffected,
+                              isAvailable: user.isAvailable,
+                              adresse: result['adresse'],
+                              imageUrl: result['imageUrl'],
+                            );
+                          } else {
+                            updatedUser = Utilisateur(
+                              id: user.id,
+                              nom: result['nom'],
+                              prenom: result['prenom'],
+                              email: user.email,
+                              motDePasse: user.motDePasse,
+                              telephone: result['telephone'],
+                              dateInscription: user.dateInscription,
+                              role: user.role,
+                              isActive: user.isActive,
+                              isAffected: user.isAffected,
+                              isAvailable: user.isAvailable,
+                              imageUrl: result['imageUrl'],
+                            );
+                          }
+
+                          await UtilisateurRepository().updateUser(updatedUser);
+                          _authService.updateCurrentUser(updatedUser);
+
+                          if (result['password'] != null &&
+                              result['oldPassword'] != null) {
+                            await _authService.updatePasswordWithReauth(
+                              result['oldPassword'],
+                              result['password'],
+                            );
+                          }
+
+                          setState(() {});
+
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Profile updated successfully'),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error updating profile: $e'),
+                              ),
+                            );
+                          }
+                        }
+                      }
                     },
                   ),
                 ),
@@ -656,15 +732,33 @@ class _VisitorScreenState extends State<VisitorScreen> {
     final items = <BottomNavigationBarItem>[
       const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
     ];
-    if (_currentUser != null && _currentUser!.role == Role.client) {
-      items.addAll(const [
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        BottomNavigationBarItem(
+    final user = _currentUser;
+    if (user != null && user.role == Role.client) {
+      items.addAll([
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.person),
+          label: 'Profile',
+        ),
+        const BottomNavigationBarItem(
           icon: Icon(Icons.notifications),
           label: 'Notifications',
         ),
-        BottomNavigationBarItem(icon: Icon(Icons.list_alt), label: 'Orders'),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.list_alt),
+          label: 'Orders',
+        ),
       ]);
+
+      // Update Profile icon if image exists
+      if (user.imageUrl != null) {
+        items[1] = BottomNavigationBarItem(
+          icon: CircleAvatar(
+            radius: 12,
+            backgroundImage: NetworkImage(user.imageUrl!),
+          ),
+          label: 'Profile',
+        );
+      }
     } else {
       // Add a Login tab for unauthenticated users
       // BottomNavigationBar requires at least 2 items

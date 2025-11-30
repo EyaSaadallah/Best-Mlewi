@@ -200,6 +200,11 @@ class FirebaseAuthService {
   /// Get current Firebase user
   User? get firebaseUser => _auth.currentUser;
 
+  /// Update current user locally
+  void updateCurrentUser(Utilisateur user) {
+    _currentUser = user;
+  }
+
   /// Reset password
   Future<void> resetPassword(String email) async {
     try {

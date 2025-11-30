@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import '../models/utilisateur.dart';
 import '../models/client.dart';
 import '../models/enums.dart';
+import '../services/imagekit_service.dart';
 
 class ProfileEditScreen extends StatefulWidget {
   final Utilisateur user;
@@ -24,6 +27,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   bool _isLoading = false;
   bool _obscureOldPassword = true;
   bool _obscureNewPassword = true;
+  File? _imageFile;
+  String? _imageUrl;
+  final _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -36,6 +42,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     );
     _passwordController = TextEditingController();
     _oldPasswordController = TextEditingController();
+    _imageUrl = widget.user.imageUrl;
   }
 
   @override
@@ -64,6 +71,29 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     }
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _imageFile = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error picking image: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeColor = _getRoleColor(widget.user.role);
@@ -85,12 +115,21 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: themeColor,
-                    child: Text(
-                      widget.user.prenom.isNotEmpty
-                          ? widget.user.prenom[0].toUpperCase()
-                          : '?',
-                      style: const TextStyle(fontSize: 40, color: Colors.white),
-                    ),
+                    backgroundImage: _imageFile != null
+                        ? FileImage(_imageFile!)
+                        : (_imageUrl != null ? NetworkImage(_imageUrl!) : null)
+                              as ImageProvider?,
+                    child: (_imageFile == null && _imageUrl == null)
+                        ? Text(
+                            widget.user.prenom.isNotEmpty
+                                ? widget.user.prenom[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              fontSize: 40,
+                              color: Colors.white,
+                            ),
+                          )
+                        : null,
                   ),
                   Positioned(
                     bottom: 0,
@@ -101,18 +140,33 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                       child: IconButton(
                         icon: const Icon(Icons.camera_alt, size: 18),
                         color: themeColor,
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Profile picture upload not implemented yet',
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: _pickImage,
                       ),
                     ),
                   ),
+                  if (_imageFile != null || _imageUrl != null)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: CircleAvatar(
+                        backgroundColor: Colors.red,
+                        radius: 15,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(
+                            Icons.close,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _imageFile = null;
+                              _imageUrl = null;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 24),
@@ -260,30 +314,76 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 child: ElevatedButton(
                   onPressed: _isLoading
                       ? null
-                      : () {
+                      : () async {
                           if (_formKey.currentState?.validate() ?? false) {
-                            final result = {
-                              'nom': _nomController.text,
-                              'prenom': _prenomController.text,
-                              'telephone': _telephoneController.text,
-                              'password': _passwordController.text.isNotEmpty
-                                  ? _passwordController.text
-                                  : null,
-                              'oldPassword':
-                                  _oldPasswordController.text.isNotEmpty
-                                  ? _oldPasswordController.text
-                                  : null,
-                            };
+                            setState(() => _isLoading = true);
+                            try {
+                              String? newImageUrl = _imageUrl;
+                              final imageService = ImageKitService();
 
-                            // Add address if user is client
-                            if (widget.user.role == Role.client) {
-                              result['adresse'] =
-                                  _adresseController.text.isNotEmpty
-                                  ? _adresseController.text
-                                  : null;
+                              // Case 1: New image selected
+                              if (_imageFile != null) {
+                                // Delete old image if exists
+                                if (widget.user.imageUrl != null) {
+                                  await imageService.deleteImage(
+                                    widget.user.imageUrl!,
+                                  );
+                                }
+
+                                final fileName =
+                                    'user_${widget.user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+                                newImageUrl = await imageService.uploadImage(
+                                  _imageFile!,
+                                  fileName,
+                                );
+                              }
+                              // Case 2: Image removed (and no new image selected)
+                              else if (_imageUrl == null &&
+                                  widget.user.imageUrl != null) {
+                                await imageService.deleteImage(
+                                  widget.user.imageUrl!,
+                                );
+                                newImageUrl = null;
+                              }
+
+                              final result = {
+                                'nom': _nomController.text,
+                                'prenom': _prenomController.text,
+                                'telephone': _telephoneController.text,
+                                'password': _passwordController.text.isNotEmpty
+                                    ? _passwordController.text
+                                    : null,
+                                'oldPassword':
+                                    _oldPasswordController.text.isNotEmpty
+                                    ? _oldPasswordController.text
+                                    : null,
+                                'imageUrl': newImageUrl,
+                              };
+
+                              // Add address if user is client
+                              if (widget.user.role == Role.client) {
+                                result['adresse'] =
+                                    _adresseController.text.isNotEmpty
+                                    ? _adresseController.text
+                                    : null;
+                              }
+
+                              if (mounted) {
+                                Navigator.pop(context, result);
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error saving profile: $e'),
+                                  ),
+                                );
+                              }
+                            } finally {
+                              if (mounted) {
+                                setState(() => _isLoading = false);
+                              }
                             }
-
-                            Navigator.pop(context, result);
                           }
                         },
                   style: ElevatedButton.styleFrom(

@@ -14,6 +14,7 @@ class Utilisateur {
   final bool isAffected;
   final bool isAvailable;
   final String? fcmToken;
+  final String? imageUrl;
 
   Utilisateur({
     required this.id,
@@ -28,6 +29,7 @@ class Utilisateur {
     this.isAffected = false,
     this.isAvailable = true,
     this.fcmToken,
+    this.imageUrl,
   });
 
   /// Login with email and password

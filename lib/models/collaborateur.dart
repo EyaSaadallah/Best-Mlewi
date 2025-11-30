@@ -14,6 +14,7 @@ class Collaborateur extends Utilisateur {
     bool isActive = true,
     bool isAffected = false,
     bool isAvailable = true,
+    String? imageUrl,
   }) : super(
          id: id,
          nom: nom,
@@ -26,6 +27,7 @@ class Collaborateur extends Utilisateur {
          isActive: isActive,
          isAffected: isAffected,
          isAvailable: isAvailable,
+         imageUrl: imageUrl,
        );
 
   /// Activate availability

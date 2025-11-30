@@ -14,6 +14,7 @@ class Gerant extends Utilisateur {
     super.isActive = true,
     super.isAffected = false,
     super.isAvailable = true,
+    super.imageUrl,
   }) : super(role: Role.gerant);
 
   /// Consult system information

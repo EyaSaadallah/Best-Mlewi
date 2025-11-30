@@ -489,10 +489,20 @@ class _HomeScreenState extends State<HomeScreen> {
               CircleAvatar(
                 radius: 50,
                 backgroundColor: themeColor,
-                child: Text(
-                  user.prenom.isNotEmpty ? user.prenom[0].toUpperCase() : '?',
-                  style: const TextStyle(fontSize: 40, color: Colors.white),
-                ),
+                backgroundImage: user.imageUrl != null
+                    ? NetworkImage(user.imageUrl!)
+                    : null,
+                child: user.imageUrl == null
+                    ? Text(
+                        user.prenom.isNotEmpty
+                            ? user.prenom[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                          fontSize: 40,
+                          color: Colors.white,
+                        ),
+                      )
+                    : null,
               ),
               Positioned(
                 bottom: 0,
@@ -606,6 +616,7 @@ class _HomeScreenState extends State<HomeScreen> {
             isAffected: user.isAffected,
             isAvailable: user.isAvailable,
             adresse: result['adresse'],
+            imageUrl: result['imageUrl'],
           );
         } else {
           updatedUser = Utilisateur(
@@ -620,10 +631,12 @@ class _HomeScreenState extends State<HomeScreen> {
             isActive: user.isActive,
             isAffected: user.isAffected,
             isAvailable: user.isAvailable,
+            imageUrl: result['imageUrl'],
           );
         }
 
         await _userRepository.updateUser(updatedUser);
+        _authService.updateCurrentUser(updatedUser);
 
         // Update password if provided
         if (result['password'] != null && result['oldPassword'] != null) {
@@ -1069,41 +1082,59 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  BottomNavigationBar? _buildBottomNav(Role role) {
-    if (role == Role.visiteur) {
-      return null;
-    }
-
-    final themeColor = _getRoleColor(role);
+  Widget _buildBottomNav(Role role) {
     final user = _authService.currentUser;
+    final items = <BottomNavigationBarItem>[
+      const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+    ];
 
-    return BottomNavigationBar(
-      items: [
-        const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-        BottomNavigationBarItem(
-          icon: StreamBuilder<int>(
-            stream: user != null
-                ? _notificationService.getUnreadCount(user.id)
-                : Stream.value(0),
-            builder: (context, snapshot) {
-              final count = snapshot.data ?? 0;
-              if (count == 0) return const Icon(Icons.notifications);
-              return Badge(
-                label: Text('$count'),
-                child: const Icon(Icons.notifications),
-              );
-            },
+    if (role == Role.client || role == Role.visiteur) {
+      if (role == Role.client) {
+        items.addAll([
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.notifications),
+            label: 'Notifications',
           ),
+          BottomNavigationBarItem(
+            icon: user?.imageUrl != null
+                ? CircleAvatar(
+                    radius: 12,
+                    backgroundImage: NetworkImage(user!.imageUrl!),
+                  )
+                : const Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ]);
+      } else {
+        // Visitor
+        items.add(
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.login),
+            label: 'Login',
+          ),
+        );
+      }
+    } else {
+      // Staff roles
+      items.addAll([
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.notifications),
           label: 'Notifications',
         ),
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.person),
+        BottomNavigationBarItem(
+          icon: user?.imageUrl != null
+              ? CircleAvatar(
+                  radius: 12,
+                  backgroundImage: NetworkImage(user!.imageUrl!),
+                )
+              : const Icon(Icons.person),
           label: 'Profile',
         ),
-      ],
+      ]);
+    }
+
+    return BottomNavigationBar(
       currentIndex: _selectedIndex,
-      selectedItemColor: themeColor,
-      unselectedItemColor: Colors.grey,
       onTap: (index) {
         if (index == _selectedIndex && index == 0) {
           // If already on Home, pop to root of nested navigator
@@ -1114,6 +1145,10 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         }
       },
+      items: items,
+      type: BottomNavigationBarType.fixed,
+      selectedItemColor: _getRoleColor(role),
+      unselectedItemColor: Colors.grey,
     );
   }
 }

@@ -81,6 +81,7 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
       isAffected: data['isAffected'] as bool? ?? false,
       isAvailable: data['isAvailable'] as bool? ?? true,
       fcmToken: data['fcmToken'] as String?,
+      imageUrl: data['imageUrl'] as String?,
     );
 
     // Return appropriate user type based on role
@@ -98,6 +99,7 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           isAffected: baseUser.isAffected,
           isAvailable: baseUser.isAvailable,
           adresse: data['adresse'] as String?,
+          imageUrl: baseUser.imageUrl,
         );
       case Role.gerant:
         return Gerant(
@@ -111,6 +113,7 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           isActive: baseUser.isActive,
           isAffected: baseUser.isAffected,
           isAvailable: baseUser.isAvailable,
+          imageUrl: baseUser.imageUrl,
         );
       case Role.coordinateur:
         return Coordinateur(
@@ -124,6 +127,7 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           isActive: baseUser.isActive,
           isAffected: baseUser.isAffected,
           isAvailable: baseUser.isAvailable,
+          imageUrl: baseUser.imageUrl,
         );
       case Role.livreur:
         return Livreur(
@@ -137,6 +141,7 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           isActive: baseUser.isActive,
           isAffected: baseUser.isAffected,
           isAvailable: baseUser.isAvailable,
+          imageUrl: baseUser.imageUrl,
         );
       case Role.collaborateur:
         return Collaborateur(
@@ -150,6 +155,7 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           isActive: baseUser.isActive,
           isAffected: baseUser.isAffected,
           isAvailable: baseUser.isAvailable,
+          imageUrl: baseUser.imageUrl,
         );
       case Role.visiteur:
         return Visiteur(
@@ -163,6 +169,7 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           isActive: baseUser.isActive,
           isAffected: baseUser.isAffected,
           isAvailable: baseUser.isAvailable,
+          imageUrl: baseUser.imageUrl,
         );
     }
   }
@@ -182,6 +189,7 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
       'isAffected': user.isAffected,
       'isAvailable': user.isAvailable,
       'fcmToken': user.fcmToken,
+      'imageUrl': user.imageUrl,
     };
 
     // Add address field if user is a Client

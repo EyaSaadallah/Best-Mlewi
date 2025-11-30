@@ -17,6 +17,7 @@ class Client extends Utilisateur {
     bool isAffected = false,
     bool isAvailable = true,
     this.adresse,
+    String? imageUrl,
   }) : super(
          id: id,
          nom: nom,
@@ -29,6 +30,7 @@ class Client extends Utilisateur {
          isActive: isActive,
          isAffected: isAffected,
          isAvailable: isAvailable,
+         imageUrl: imageUrl,
        );
 
   /// Consult menu

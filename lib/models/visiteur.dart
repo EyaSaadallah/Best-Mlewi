@@ -14,6 +14,7 @@ class Visiteur extends Utilisateur {
     super.isActive = true,
     super.isAffected = false,
     super.isAvailable = true,
+    super.imageUrl,
   }) : super(role: Role.visiteur);
 
   @override
