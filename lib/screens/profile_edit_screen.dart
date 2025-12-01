@@ -67,7 +67,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       case Role.collaborateur:
         return Colors.blue;
       default:
-        return Colors.deepPurple;
+        return Colors.black;
     }
   }
 
@@ -149,7 +149,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                       top: 0,
                       right: 0,
                       child: CircleAvatar(
-                        backgroundColor: Colors.red,
+                        backgroundColor: Colors.black,
                         radius: 15,
                         child: IconButton(
                           padding: EdgeInsets.zero,

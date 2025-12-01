@@ -14,6 +14,7 @@ import '../services/cart_service.dart';
 import '../services/order_service.dart';
 import '../models/commande.dart';
 import 'cart_screen.dart';
+import 'dish_details_screen.dart';
 import 'login_screen.dart' as login_screen;
 import 'profile_edit_screen.dart';
 
@@ -42,87 +43,410 @@ class _VisitorScreenState extends State<VisitorScreen> {
 
   // -------------------- UI TAB BUILDERS --------------------
   Widget _buildHomeTab() {
-    return Column(
-      children: [
-        // Welcome banner
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.deepPurple[400]!, Colors.deepPurple[600]!],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header & Search
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                // Search Bar
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search',
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: Colors.grey,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Cart Button
+                if (_currentUser != null && _currentUser!.role == Role.client)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.shopping_cart_outlined,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const CartScreen()),
+                        );
+                      },
+                    ),
+                  ),
+              ],
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text(
-                'Welcome to BestMlewi! 🍽️',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Special Offer Banner
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Stack(
+                        children: [
+                          Image.asset(
+                            'images/home_banner_modern.png', // Ensure this exists or use a placeholder
+                            height: 180,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                height: 180,
+                                color: Colors.grey[300],
+                                child: const Center(
+                                  child: Icon(Icons.image_not_supported),
+                                ),
+                              );
+                            },
+                          ),
+                          Positioned(
+                            bottom: 20,
+                            left: 20,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'SPECIAL OFFER',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'SAVE NOW!',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 24,
+                                    shadows: [
+                                      Shadow(
+                                        blurRadius: 4,
+                                        color: Colors.black45,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Categories Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Categories',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Icon(Icons.chevron_right, color: Colors.grey[600]),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Menu/Categories List
+                  FutureBuilder<List<Menu>>(
+                    future: _menuRepository.getAll(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError ||
+                          !snapshot.hasData ||
+                          snapshot.data!.isEmpty) {
+                        return const Center(child: Text('No menu available'));
+                      }
+
+                      final menus = snapshot.data!;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Horizontal Categories (Menus)
+                          SizedBox(
+                            height: 100,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              itemCount: menus.length,
+                              itemBuilder: (context, index) {
+                                final menu = menus[index];
+                                return Container(
+                                  width: 80,
+                                  margin: const EdgeInsets.only(right: 16),
+                                  child: Column(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 30,
+                                        backgroundColor: Colors.grey[100],
+                                        child: const Icon(
+                                          Icons.fastfood,
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        menu.titre,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Vertical Categories with Dishes
+                          ...menus.map((menu) {
+                            final dishes = menu.getPlatDisponibles();
+                            if (dishes.isEmpty) return const SizedBox.shrink();
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    8,
+                                    16,
+                                    16,
+                                  ),
+                                  child: Text(
+                                    menu.titre,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0,
+                                  ),
+                                  child: GridView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 2,
+                                          childAspectRatio: 0.75,
+                                          crossAxisSpacing: 16,
+                                          mainAxisSpacing: 16,
+                                        ),
+                                    itemCount: dishes.length,
+                                    itemBuilder: (context, index) {
+                                      return _buildDishCard(dishes[index]);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                              ],
+                            );
+                          }).toList(),
+
+                          const SizedBox(
+                            height: 80,
+                          ), // Bottom padding for nav bar
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDishCard(Plat plat) {
+    final cartService = CartService();
+    final user = _currentUser;
+    final isClientLoggedIn = user != null && user.role == Role.client;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => DishDetailsScreen(plat: plat)),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
                 ),
+                child: plat.imageUrl.isNotEmpty
+                    ? _buildDishImage(plat.imageUrl)
+                    : Container(
+                        color: Colors.grey[100],
+                        child: const Center(
+                          child: Icon(
+                            Icons.restaurant,
+                            size: 40,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
               ),
-              SizedBox(height: 8),
-              Text(
-                'Browse our delicious menu. Login to place orders!',
-                style: TextStyle(color: Colors.white70, fontSize: 16),
-              ),
-            ],
-          ),
-        ),
-        // Menu list
-        Expanded(
-          child: FutureBuilder<List<Menu>>(
-            future: _menuRepository.getAll(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.error_outline, size: 64, color: Colors.red),
-                      SizedBox(height: 16),
-                      Text('Error loading menu'),
+            ),
+
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    plat.nom,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    plat.categorie,
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${plat.prix.toStringAsFixed(2)}dt',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      if (isClientLoggedIn)
+                        GestureDetector(
+                          onTap: () {
+                            cartService.addToCart(plat, 1);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${plat.nom} added to cart'),
+                                duration: const Duration(seconds: 1),
+                                backgroundColor: Colors.black,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: Colors.black,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.add,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
-                );
-              }
-              final menus = snapshot.data ?? [];
-              if (menus.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.restaurant_menu, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('No menu available yet'),
-                    ],
-                  ),
-                );
-              }
-              return ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: menus.length,
-                itemBuilder: (context, index) => _buildMenuCard(menus[index]),
-              );
-            },
-          ),
+                ],
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
   Widget _buildProfileTab() {
     final user = _currentUser;
     if (user == null) return const Center(child: Text('Please log in'));
-    final themeColor = _getRoleColor(user.role);
+    final themeColor = Colors.black; // Updated to black
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -269,6 +593,30 @@ class _VisitorScreenState extends State<VisitorScreen> {
             'Joined',
             user.dateInscription.toString().split(' ')[0],
           ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                await _authService.logout();
+                setState(() {
+                  _selectedIndex = 0; // Reset to Home tab
+                });
+              },
+              icon: const Icon(Icons.logout, color: Colors.white),
+              label: const Text(
+                'Logout',
+                style: TextStyle(color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -302,6 +650,12 @@ class _VisitorScreenState extends State<VisitorScreen> {
             final notif = notifications[index];
             return Card(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              elevation: 0,
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.grey[200]!),
+              ),
               child: ListTile(
                 title: Text(
                   notif.message,
@@ -311,7 +665,7 @@ class _VisitorScreenState extends State<VisitorScreen> {
                 ),
                 subtitle: Text(notif.dateEnvoi.toString().split('.')[0]),
                 trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  icon: const Icon(Icons.delete_outline, color: Colors.black54),
                   onPressed: () async {
                     await _notificationService.deleteNotification(notif.id);
                     setState(() {});
@@ -387,8 +741,12 @@ class _VisitorScreenState extends State<VisitorScreen> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -523,7 +881,7 @@ class _VisitorScreenState extends State<VisitorScreen> {
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
-                      color: Colors.green,
+                      color: Colors.black,
                     ),
                   ),
                 ],
@@ -579,172 +937,31 @@ class _VisitorScreenState extends State<VisitorScreen> {
     );
   }
 
-  Color _getRoleColor(Role role) {
-    switch (role) {
-      case Role.gerant:
-        return Colors.deepPurple;
-      case Role.coordinateur:
-        return Colors.orange;
-      case Role.livreur:
-        return Colors.green;
-      case Role.collaborateur:
-        return Colors.blue;
-      case Role.client:
-        return Colors.deepPurple;
-      default:
-        return Colors.deepPurple;
-    }
-  }
-
-  // Menu card helpers
-  Widget _buildMenuCard(Menu menu) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ExpansionTile(
-        title: Text(
-          menu.titre,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text('${menu.plats.length} dishes available'),
-        leading: CircleAvatar(
-          backgroundColor: Colors.deepPurple[100],
-          child: const Icon(Icons.restaurant, color: Colors.deepPurple),
-        ),
-        children: menu.getPlatDisponibles().map(_buildDishTile).toList(),
-      ),
-    );
-  }
-
-  Widget _buildDishTile(Plat plat) {
-    final cartService = CartService();
-    final user = _currentUser;
-    final isClientLoggedIn = user != null && user.role == Role.client;
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            // Dish image or icon
-            Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                color: Colors.deepPurple[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: plat.imageUrl.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: _buildDishImage(plat.imageUrl),
-                    )
-                  : const Icon(
-                      Icons.restaurant_menu,
-                      color: Colors.deepPurple,
-                      size: 35,
-                    ),
-            ),
-            const SizedBox(width: 12),
-            // Dish details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    plat.nom,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    plat.description,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.orange[100],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          plat.categorie,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.orange[900],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '\$${plat.prix.toStringAsFixed(2)} DT',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green[900],
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Add to cart button
-            if (isClientLoggedIn)
-              IconButton(
-                icon: const Icon(Icons.add_shopping_cart),
-                color: Colors.green,
-                onPressed: () {
-                  cartService.addToCart(plat, 1);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${plat.nom} added to cart'),
-                      duration: const Duration(seconds: 2),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // Bottom navigation
   List<BottomNavigationBarItem> _navItems() {
     final items = <BottomNavigationBarItem>[
-      const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.home_outlined),
+        activeIcon: Icon(Icons.home),
+        label: 'Home',
+      ),
     ];
     final user = _currentUser;
     if (user != null && user.role == Role.client) {
       items.addAll([
         const BottomNavigationBarItem(
-          icon: Icon(Icons.person),
+          icon: Icon(Icons.person_outline),
+          activeIcon: Icon(Icons.person),
           label: 'Profile',
         ),
         const BottomNavigationBarItem(
-          icon: Icon(Icons.notifications),
+          icon: Icon(Icons.notifications_outlined),
+          activeIcon: Icon(Icons.notifications),
           label: 'Notifications',
         ),
         const BottomNavigationBarItem(
-          icon: Icon(Icons.list_alt),
+          icon: Icon(Icons.shopping_bag_outlined),
+          activeIcon: Icon(Icons.shopping_bag),
           label: 'Orders',
         ),
       ]);
@@ -790,114 +1007,30 @@ class _VisitorScreenState extends State<VisitorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = _currentUser;
-    final isClientLoggedIn = user != null && user.role == Role.client;
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('BestMlewi'),
-        actions: [
-          // Cart button (only for logged-in clients)
-          if (isClientLoggedIn)
-            Stack(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.shopping_cart),
-                  tooltip: 'Shopping Cart',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CartScreen()),
-                    );
-                  },
-                ),
-                // Cart badge showing item count
-                if (CartService().getCartItemCount() > 0)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 18,
-                        minHeight: 18,
-                      ),
-                      child: Text(
-                        '${CartService().getCartItemCount()}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          // Profile button (only for logged-in clients)
-          if (isClientLoggedIn)
-            IconButton(
-              icon: const Icon(Icons.person),
-              tooltip: 'Profile',
-              onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ProfileEditScreen(user: user),
-                  ),
-                );
-                if (result != null) setState(() {});
-              },
-            ),
-          // Logout button (only for logged-in clients)
-          if (isClientLoggedIn)
-            IconButton(
-              icon: const Icon(Icons.logout),
-              tooltip: 'Logout',
-              onPressed: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Logout'),
-                    content: const Text('Are you sure you want to logout?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
-                        child: const Text('Logout'),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirm == true) {
-                  await _authService.signOutGoogle();
-                  if (mounted) {
-                    Navigator.of(context).pushReplacementNamed('/visitor');
-                  }
-                }
-              },
-            ),
-        ],
-      ),
       body: _currentTab(),
-      bottomNavigationBar: BottomNavigationBar(
-        items: _navItems(),
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.deepPurple,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          items: _navItems(),
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          selectedItemColor: Colors.black,
+          unselectedItemColor: Colors.grey,
+          showSelectedLabels: false,
+          showUnselectedLabels: false,
+          elevation: 0,
+        ),
       ),
     );
   }
@@ -910,10 +1043,9 @@ class _VisitorScreenState extends State<VisitorScreen> {
         File(imageUrl),
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
-          return const Icon(
-            Icons.restaurant_menu,
-            color: Colors.deepPurple,
-            size: 35,
+          return Container(
+            color: Colors.grey[100],
+            child: const Icon(Icons.restaurant, color: Colors.grey),
           );
         },
       );
@@ -924,10 +1056,9 @@ class _VisitorScreenState extends State<VisitorScreen> {
       imageUrl,
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) {
-        return const Icon(
-          Icons.restaurant_menu,
-          color: Colors.deepPurple,
-          size: 35,
+        return Container(
+          color: Colors.grey[100],
+          child: const Icon(Icons.restaurant, color: Colors.grey),
         );
       },
       loadingBuilder: (context, child, loadingProgress) {

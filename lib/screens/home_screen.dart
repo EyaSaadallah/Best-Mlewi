@@ -78,20 +78,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Color _getRoleColor(Role role) {
-    switch (role) {
-      case Role.gerant:
-        return Colors.deepPurple;
-      case Role.coordinateur:
-        return Colors.orange;
-      case Role.livreur:
-        return Colors.green;
-      case Role.collaborateur:
-        return Colors.blue;
-      case Role.client:
-      case Role.visiteur:
-      default:
-        return Colors.deepPurple;
-    }
+    // Consistent black theme for all roles
+    return Colors.black;
   }
 
   @override
@@ -191,15 +179,27 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<Utilisateur?>(
-        future: _userRepository.getByEmail(user.email),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final freshUser = snapshot.data ?? user;
-          return _buildContent(freshUser.role, freshUser);
-        },
+      body: Column(
+        children: [
+          Image.asset(
+            'images/home_banner_modern.png',
+            height: 120,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          ),
+          Expanded(
+            child: FutureBuilder<Utilisateur?>(
+              future: _userRepository.getByEmail(user.email),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final freshUser = snapshot.data ?? user;
+                return _buildContent(freshUser.role, freshUser);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -241,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ElevatedButton(
                             onPressed: () => Navigator.of(context).pop(true),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
+                              backgroundColor: Colors.black,
                               foregroundColor: Colors.white,
                             ),
                             child: const Text('Delete All'),
@@ -331,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
             return Dismissible(
               key: Key(notif.id.toString()),
               background: Container(
-                color: Colors.red,
+                color: Colors.black,
                 alignment: Alignment.centerRight,
                 padding: const EdgeInsets.only(right: 16),
                 child: const Icon(Icons.delete, color: Colors.white),
@@ -358,16 +358,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     vertical: 8,
                   ),
                   leading: CircleAvatar(
-                    backgroundColor: notif.type == NotificationType.error
-                        ? Colors.red[100]
-                        : Colors.blue[100],
+                    backgroundColor: Colors.grey[200],
                     child: Icon(
                       notif.type == NotificationType.error
                           ? Icons.error
                           : Icons.info,
-                      color: notif.type == NotificationType.error
-                          ? Colors.red
-                          : Colors.blue,
+                      color: Colors.black,
                     ),
                   ),
                   title: Text(
@@ -393,7 +389,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           margin: const EdgeInsets.only(right: 8),
                           child: const CircleAvatar(
                             radius: 4,
-                            backgroundColor: Colors.blue,
+                            backgroundColor: Colors.black,
                           ),
                         ),
                       // Delete button
@@ -422,7 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     onPressed: () =>
                                         Navigator.of(context).pop(true),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
+                                      backgroundColor: Colors.black,
                                       foregroundColor: Colors.white,
                                     ),
                                     child: const Text('Delete'),
@@ -450,12 +446,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.red[50],
+                              color: Colors.grey[100],
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Icon(
                               Icons.delete_outline,
-                              color: Colors.red,
+                              color: Colors.black54,
                               size: 20,
                             ),
                           ),
@@ -581,8 +577,8 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.logout),
               label: const Text('Logout'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[50],
-                foregroundColor: Colors.red,
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
             ),
@@ -749,7 +745,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.deepPurple[400]!, Colors.deepPurple[600]!],
+                colors: [Colors.grey[900]!, Colors.black],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -859,7 +855,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.orange[400]!, Colors.orange[600]!],
+                colors: [Colors.grey[900]!, Colors.black],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -898,7 +894,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'Monitor order preparation',
             Icons.track_changes,
             () {},
-            color: Colors.orange,
+            color: Colors.black,
           ),
         ],
       ),
@@ -915,7 +911,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.green[400]!, Colors.green[600]!],
+                colors: [Colors.grey[900]!, Colors.black],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -954,7 +950,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'Track current deliveries',
             Icons.local_shipping,
             () {},
-            color: Colors.green,
+            color: Colors.black,
           ),
           const SizedBox(height: 12),
           _buildMenuCard(
@@ -962,7 +958,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'Update delivery location',
             Icons.location_on,
             () {},
-            color: Colors.green,
+            color: Colors.black,
           ),
         ],
       ),
@@ -979,7 +975,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.blue[400]!, Colors.blue[600]!],
+                colors: [Colors.grey[900]!, Colors.black],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -1018,7 +1014,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'Manage your availability',
             Icons.calendar_today,
             () {},
-            color: Colors.blue,
+            color: Colors.black,
           ),
         ],
       ),
@@ -1054,7 +1050,7 @@ class _HomeScreenState extends State<HomeScreen> {
     VoidCallback onTap, {
     Color? color,
   }) {
-    final themeColor = color ?? Colors.deepPurple;
+    final themeColor = color ?? Colors.black;
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

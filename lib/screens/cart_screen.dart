@@ -92,7 +92,7 @@ class _CartScreenState extends State<CartScreen> {
                   width: 70,
                   height: 70,
                   decoration: BoxDecoration(
-                    color: Colors.deepPurple[50],
+                    color: Colors.grey[100],
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: item.plat.imageUrl.isNotEmpty
@@ -102,7 +102,7 @@ class _CartScreenState extends State<CartScreen> {
                         )
                       : const Icon(
                           Icons.restaurant_menu,
-                          color: Colors.deepPurple,
+                          color: Colors.black,
                           size: 35,
                         ),
                 ),
@@ -158,7 +158,7 @@ class _CartScreenState extends State<CartScreen> {
                         height: 36,
                         child: IconButton(
                           icon: const Icon(Icons.remove, size: 16),
-                          color: Colors.red,
+                          color: Colors.black,
                           onPressed: () {
                             setState(() {
                               if (item.quantite > 1) {
@@ -189,7 +189,7 @@ class _CartScreenState extends State<CartScreen> {
                         height: 36,
                         child: IconButton(
                           icon: const Icon(Icons.add, size: 16),
-                          color: Colors.green,
+                          color: Colors.black,
                           onPressed: () {
                             setState(() {
                               _cartService.updateQuantity(
@@ -217,7 +217,7 @@ class _CartScreenState extends State<CartScreen> {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: Colors.deepPurple,
+                        color: Colors.black,
                       ),
                     ),
                   ],
@@ -404,7 +404,7 @@ class _CartScreenState extends State<CartScreen> {
         errorBuilder: (context, error, stackTrace) {
           return const Icon(
             Icons.restaurant_menu,
-            color: Colors.deepPurple,
+            color: Colors.black,
             size: 35,
           );
         },
@@ -416,11 +416,7 @@ class _CartScreenState extends State<CartScreen> {
       imageUrl,
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) {
-        return const Icon(
-          Icons.restaurant_menu,
-          color: Colors.deepPurple,
-          size: 35,
-        );
+        return const Icon(Icons.restaurant_menu, color: Colors.black, size: 35);
       },
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
