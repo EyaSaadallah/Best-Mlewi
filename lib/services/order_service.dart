@@ -70,7 +70,9 @@ class OrderService {
         throw Exception('Cannot create order with empty cart');
       }
 
-      final orderId = _nextOrderId++;
+      // Get the highest order ID from Firestore for this specific client
+      final orderId = await _orderRepository.getNextOrderId(clientId);
+
       final total = cartItems.fold(0.0, (sum, item) => sum + item.sousTotal);
       final deliveryFee = total * 0.05;
       final tax = total * 0.1;
@@ -93,6 +95,11 @@ class OrderService {
 
       // Also keep in memory
       _orders.add(order);
+
+      // Update the in-memory counter to stay in sync
+      if (orderId >= _nextOrderId) {
+        _nextOrderId = orderId + 1;
+      }
 
       return firestoreId;
     } catch (e) {

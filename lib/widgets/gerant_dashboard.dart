@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../services/data_seeder_service.dart';
 
 /// Professional dashboard widget for Gerant with statistics and charts
 class GerantDashboard extends StatelessWidget {
@@ -18,6 +17,10 @@ class GerantDashboard extends StatelessWidget {
 
         // Charts Section
         _buildChartsSection(context),
+        const SizedBox(height: 24),
+
+        // Top Selling Dishes
+        _buildTopSellingDishes(),
         const SizedBox(height: 24),
 
         // Recent Activity
@@ -181,11 +184,6 @@ class GerantDashboard extends StatelessWidget {
                 'Analytics Overview',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-              IconButton(
-                icon: const Icon(Icons.cloud_upload, color: Colors.black),
-                tooltip: 'Seed Test Data',
-                onPressed: () => _showSeedConfirmation(context),
-              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -210,62 +208,6 @@ class GerantDashboard extends StatelessWidget {
                 );
               }
             },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showSeedConfirmation(BuildContext context) async {
-    return showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Seed Test Data'),
-        content: const Text(
-          'This will generate random orders AND reset menus:\n\n'
-          '• Orders for this week (Line Chart)\n'
-          '• Orders for today (Pie Chart)\n'
-          '• Past orders (Total Count)\n'
-          '• CLEAN MENUS & DISHES (with images)\n\n'
-          'Do you want to proceed?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Seeding data...')));
-
-              try {
-                final seeder = DataSeederService();
-                await seeder.seedMenus();
-                await seeder.seedDashboardData();
-
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('All data seeded successfully!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error seeding data: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Seed Data'),
           ),
         ],
       ),
@@ -455,26 +397,7 @@ class GerantDashboard extends StatelessWidget {
 
         // If no data, show placeholder
         if (total == 0) {
-          return Container(
-            height: 280,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Center(
-              child: Text(
-                'No order data available',
-                style: TextStyle(color: Colors.grey),
-              ),
-            ),
-          );
+          return const SizedBox.shrink();
         }
 
         return Container(
@@ -605,6 +528,135 @@ class GerantDashboard extends StatelessWidget {
     );
   }
 
+  Widget _buildTopSellingDishes() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Top Selling Dishes',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const Divider(height: 1),
+            StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _getTopSellingDishesData(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                if (snapshot.data!.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(
+                      child: Text(
+                        'No sales data available',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: snapshot.data!.length,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final item = snapshot.data![index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.orange.withOpacity(0.1),
+                        child: Text(
+                          '#${index + 1}',
+                          style: const TextStyle(
+                            color: Colors.orange,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      title: Text(
+                        item['name'],
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      subtitle: Text('${item['count']} orders'),
+                      trailing: Text(
+                        '${(item['revenue'] as double).toStringAsFixed(2)} TND',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Stream<List<Map<String, dynamic>>> _getTopSellingDishesData() {
+    // Query last 50 orders to calculate top sellers
+    return FirebaseFirestore.instance
+        .collection('commandes')
+        .orderBy('dateCreation', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((snapshot) {
+          final dishCounts = <String, Map<String, dynamic>>{};
+
+          for (var doc in snapshot.docs) {
+            final data = doc.data();
+            final lines = data['lignes'] as List<dynamic>? ?? [];
+
+            for (var line in lines) {
+              final lineMap = line as Map<String, dynamic>;
+              final plat = lineMap['plat'] as Map<String, dynamic>;
+              final name = plat['nom'] as String;
+              final quantity = lineMap['quantite'] as int;
+              final total = (lineMap['sousTotal'] as num).toDouble();
+
+              if (!dishCounts.containsKey(name)) {
+                dishCounts[name] = {'name': name, 'count': 0, 'revenue': 0.0};
+              }
+
+              dishCounts[name]!['count'] =
+                  (dishCounts[name]!['count'] as int) + quantity;
+              dishCounts[name]!['revenue'] =
+                  (dishCounts[name]!['revenue'] as double) + total;
+            }
+          }
+
+          final sortedDishes = dishCounts.values.toList()
+            ..sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+
+          return sortedDishes.take(4).toList();
+        });
+  }
+
   Widget _buildRecentActivity() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -640,7 +692,7 @@ class GerantDashboard extends StatelessWidget {
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('commandes')
-                  .orderBy('dateCommande', descending: true)
+                  .orderBy('dateCreation', descending: true)
                   .limit(5)
                   .snapshots(),
               builder: (context, snapshot) {
@@ -673,7 +725,7 @@ class GerantDashboard extends StatelessWidget {
                     final doc = snapshot.data!.docs[index];
                     final data = doc.data() as Map<String, dynamic>;
                     final status = data['statut'] ?? 'pending';
-                    final timestamp = data['dateCommande'] as Timestamp?;
+                    final timestamp = data['dateCreation'] as Timestamp?;
                     final date = timestamp?.toDate() ?? DateTime.now();
 
                     return ListTile(
@@ -801,7 +853,7 @@ class GerantDashboard extends StatelessWidget {
     return FirebaseFirestore.instance
         .collection('commandes')
         .where(
-          'dateCommande',
+          'dateCreation',
           isGreaterThanOrEqualTo: Timestamp.fromDate(weekStart),
         )
         .snapshots()
@@ -811,7 +863,7 @@ class GerantDashboard extends StatelessWidget {
 
           for (var doc in snapshot.docs) {
             final data = doc.data();
-            final timestamp = data['dateCommande'] as Timestamp?;
+            final timestamp = data['dateCreation'] as Timestamp?;
             if (timestamp != null) {
               final date = timestamp.toDate();
               final daysDiff = date.difference(weekStart).inDays;
@@ -837,7 +889,7 @@ class GerantDashboard extends StatelessWidget {
     return FirebaseFirestore.instance
         .collection('commandes')
         .where(
-          'dateCommande',
+          'dateCreation',
           isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart),
         )
         .snapshots()
@@ -872,9 +924,9 @@ class GerantDashboard extends StatelessWidget {
         });
   }
 
-  Stream<Map<String, int>> _getStatisticsStream() {
-    // Refresh stats every 30 seconds to save reads
-    return Stream.periodic(const Duration(seconds: 30), (_) async {
+  Stream<Map<String, int>> _getStatisticsStream() async* {
+    // Helper function to fetch stats
+    Future<Map<String, int>> fetchStats() async {
       try {
         // Use count() aggregation for efficient reading
         final ordersCount = await FirebaseFirestore.instance
@@ -889,7 +941,7 @@ class GerantDashboard extends StatelessWidget {
             .get();
 
         final posCount = await FirebaseFirestore.instance
-            .collection('pointsDeVente')
+            .collection('points_de_vente')
             .count()
             .get();
 
@@ -920,6 +972,14 @@ class GerantDashboard extends StatelessWidget {
           'totalPOS': 0,
         };
       }
-    }).asyncMap((event) => event);
+    }
+
+    // Yield initial value immediately
+    yield await fetchStats();
+
+    // Then yield periodically
+    await for (final _ in Stream.periodic(const Duration(seconds: 30))) {
+      yield await fetchStats();
+    }
   }
 }

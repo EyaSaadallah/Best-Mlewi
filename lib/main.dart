@@ -10,6 +10,7 @@ import 'screens/debug_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/visitor_screen.dart';
 import 'services/notification_service.dart';
+import 'constants/app_theme.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -40,10 +41,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'BestMlewi',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.lightTheme,
       home: const VisitorScreen(),
       routes: {
         '/visitor': (context) => const VisitorScreen(),

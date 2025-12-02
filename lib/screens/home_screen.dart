@@ -25,8 +25,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final _userRepository = UtilisateurRepository();
   final _notificationService = NotificationService();
   final _homeNavigatorKey = GlobalKey<NavigatorState>();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  int _selectedIndex = 0;
+  int _selectedIndex = 0; // IndexedStack index
+  int _selectedButtonIndex = 0; // BottomNavigationBar index
   bool _isUpdatingAvailability = false;
 
   Future<void> _toggleAvailability(bool value) async {
@@ -165,7 +167,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildDashboard(Utilisateur user) {
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
+        // Explicitly add drawer button for gerant
+        leading: user.role == Role.gerant
+            ? IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () {
+                  _scaffoldKey.currentState?.openDrawer();
+                },
+              )
+            : null,
         title: const Text('BestMlewi'),
         actions: [
           Padding(
@@ -179,14 +191,18 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+      // Add drawer for gerant users
+      drawer: user.role == Role.gerant ? _buildGerantDrawer() : null,
       body: Column(
         children: [
-          Image.asset(
-            'images/home_banner_modern.png',
-            height: 120,
-            width: double.infinity,
-            fit: BoxFit.cover,
-          ),
+          // Only show banner for clients, not for staff
+          if (user.role == Role.client)
+            Image.asset(
+              'images/home_banner_modern.png',
+              height: 120,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
           Expanded(
             child: FutureBuilder<Utilisateur?>(
               future: _userRepository.getByEmail(user.email),
@@ -198,6 +214,118 @@ class _HomeScreenState extends State<HomeScreen> {
                 return _buildContent(freshUser.role, freshUser);
               },
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGerantDrawer() {
+    final user = _authService.currentUser;
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.grey[900]!, Colors.black],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const CircleAvatar(
+                  radius: 30,
+                  backgroundColor: Colors.white,
+                  child: Icon(
+                    Icons.restaurant_menu,
+                    size: 30,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '${user?.prenom} ${user?.nom}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Manager',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.dashboard, color: Colors.black),
+            title: const Text('Dashboard'),
+            onTap: () {
+              _scaffoldKey.currentState?.closeDrawer();
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.assignment, color: Colors.black),
+            title: const Text('Manage Commands'),
+            subtitle: const Text('View and manage all orders'),
+            onTap: () {
+              _scaffoldKey.currentState?.closeDrawer();
+              // TODO: Navigate to commands management
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.location_on, color: Colors.black),
+            title: const Text('Sales Points'),
+            subtitle: const Text('Manage restaurant locations'),
+            onTap: () {
+              _scaffoldKey.currentState?.closeDrawer();
+              _homeNavigatorKey.currentState?.pushNamed('/pos');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.restaurant, color: Colors.black),
+            title: const Text('Manage Categories'),
+            subtitle: const Text('Manage menus and dishes'),
+            onTap: () {
+              _scaffoldKey.currentState?.closeDrawer();
+              _homeNavigatorKey.currentState?.pushNamed('/menu');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.people, color: Colors.black),
+            title: const Text('Collaborators'),
+            subtitle: const Text('Manage staff and team members'),
+            onTap: () {
+              _scaffoldKey.currentState?.closeDrawer();
+              _homeNavigatorKey.currentState?.pushNamed('/collaborateurs');
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.settings, color: Colors.black),
+            title: const Text('System Settings'),
+            subtitle: const Text('Configure system parameters'),
+            onTap: () {
+              _scaffoldKey.currentState?.closeDrawer();
+              // TODO: Navigate to settings
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.bar_chart, color: Colors.black),
+            title: const Text('Reports'),
+            subtitle: const Text('View analytics and reports'),
+            onTap: () {
+              _scaffoldKey.currentState?.closeDrawer();
+              // TODO: Navigate to reports
+            },
           ),
         ],
       ),
@@ -736,7 +864,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildGerantContent() {
     final user = _authService.currentUser;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -749,7 +876,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(24),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -769,11 +896,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'You have full access to the BestMlewi management system',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                Row(
+                  children: [
+                    const Icon(Icons.menu, color: Colors.white70, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Open the menu to access management tools',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -782,64 +917,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // Dashboard with Statistics and Charts
           const GerantDashboard(),
-          const SizedBox(height: 32),
-
-          // Dashboard title
-          Text(
-            'Management Dashboard',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          // Menu cards
-          _buildMenuCard(
-            'Manage Commands',
-            'View and manage all orders',
-            Icons.assignment,
-            () {},
-          ),
-          const SizedBox(height: 12),
-          _buildMenuCard(
-            'Sales Points',
-            'Manage restaurant locations',
-            Icons.location_on,
-            () {
-              _homeNavigatorKey.currentState?.pushNamed('/pos');
-            },
-          ),
-          const SizedBox(height: 12),
-          _buildMenuCard(
-            'Manage Categories',
-            'Manage menus and dishes',
-            Icons.restaurant,
-            () {
-              _homeNavigatorKey.currentState?.pushNamed('/menu');
-            },
-          ),
-          const SizedBox(height: 12),
-          _buildMenuCard(
-            'Collaborators',
-            'Manage staff and team members',
-            Icons.people,
-            () {
-              _homeNavigatorKey.currentState?.pushNamed('/collaborateurs');
-            },
-          ),
-          const SizedBox(height: 12),
-          _buildMenuCard(
-            'System Settings',
-            'Configure system parameters',
-            Icons.settings,
-            () {},
-          ),
-          const SizedBox(height: 12),
-          _buildMenuCard(
-            'Reports',
-            'View analytics and reports',
-            Icons.bar_chart,
-            () {},
-          ),
         ],
       ),
     );
@@ -847,9 +924,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCoordinateurContent(Utilisateur user) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             padding: const EdgeInsets.all(24),
@@ -859,7 +935,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(24),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -881,20 +957,25 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          _buildAvailabilitySwitch(user.isAvailable),
-          const SizedBox(height: 24),
-          Text(
-            'Coordinator Dashboard',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 24),
-          _buildMenuCard(
-            'Track Preparation',
-            'Monitor order preparation',
-            Icons.track_changes,
-            () {},
-            color: Colors.black,
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Coordinator Dashboard',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 24),
+                _buildMenuCard(
+                  'Track Preparation',
+                  'Monitor order preparation',
+                  Icons.track_changes,
+                  () {},
+                  color: Colors.black,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -903,9 +984,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildLivreurContent(Utilisateur user) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             padding: const EdgeInsets.all(24),
@@ -915,7 +995,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(24),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -937,28 +1017,33 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          _buildAvailabilitySwitch(user.isAvailable),
-          const SizedBox(height: 24),
-          Text(
-            'Delivery Dashboard',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 24),
-          _buildMenuCard(
-            'Active Deliveries',
-            'Track current deliveries',
-            Icons.local_shipping,
-            () {},
-            color: Colors.black,
-          ),
-          const SizedBox(height: 12),
-          _buildMenuCard(
-            'Update Location',
-            'Update delivery location',
-            Icons.location_on,
-            () {},
-            color: Colors.black,
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Delivery Dashboard',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 24),
+                _buildMenuCard(
+                  'Active Deliveries',
+                  'Track current deliveries',
+                  Icons.local_shipping,
+                  () {},
+                  color: Colors.black,
+                ),
+                const SizedBox(height: 12),
+                _buildMenuCard(
+                  'Update Location',
+                  'Update delivery location',
+                  Icons.location_on,
+                  () {},
+                  color: Colors.black,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -967,9 +1052,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCollaborateurContent(Utilisateur user) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             padding: const EdgeInsets.all(24),
@@ -979,7 +1063,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(24),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1001,20 +1085,25 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          _buildAvailabilitySwitch(user.isAvailable),
-          const SizedBox(height: 24),
-          Text(
-            'Collaborator Dashboard',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 24),
-          _buildMenuCard(
-            'Availability',
-            'Manage your availability',
-            Icons.calendar_today,
-            () {},
-            color: Colors.black,
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Collaborator Dashboard',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 24),
+                _buildMenuCard(
+                  'Availability',
+                  'Manage your availability',
+                  Icons.calendar_today,
+                  () {},
+                  color: Colors.black,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1112,11 +1201,16 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } else {
       // Staff roles
-      items.addAll([
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.notifications),
-          label: 'Notifications',
-        ),
+      // Only add notifications for non-gerant staff
+      if (role != Role.gerant) {
+        items.add(
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.notifications),
+            label: 'Notifications',
+          ),
+        );
+      }
+      items.add(
         BottomNavigationBarItem(
           icon: user?.imageUrl != null
               ? CircleAvatar(
@@ -1126,18 +1220,28 @@ class _HomeScreenState extends State<HomeScreen> {
               : const Icon(Icons.person),
           label: 'Profile',
         ),
-      ]);
+      );
     }
 
     return BottomNavigationBar(
-      currentIndex: _selectedIndex,
+      currentIndex: _selectedButtonIndex,
       onTap: (index) {
-        if (index == _selectedIndex && index == 0) {
+        // Map navigation bar index to IndexedStack index
+        int stackIndex = index;
+
+        // For gerant: skip notifications index
+        if (role == Role.gerant && index > 0) {
+          stackIndex =
+              index + 1; // Profile is at index 2, but button is at index 1
+        }
+
+        if (stackIndex == _selectedIndex && stackIndex == 0) {
           // If already on Home, pop to root of nested navigator
           _homeNavigatorKey.currentState?.popUntil((route) => route.isFirst);
         } else {
           setState(() {
-            _selectedIndex = index;
+            _selectedIndex = stackIndex;
+            _selectedButtonIndex = index;
           });
         }
       },

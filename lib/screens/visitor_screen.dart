@@ -32,6 +32,8 @@ class _VisitorScreenState extends State<VisitorScreen> {
   final _menuRepository = MenuRepository();
   final _authService = FirebaseAuthService();
   final _notificationService = NotificationService();
+  final _scrollController = ScrollController();
+  final Map<String, GlobalKey> _categoryKeys = {};
 
   int _selectedIndex = 0;
 
@@ -39,6 +41,23 @@ class _VisitorScreenState extends State<VisitorScreen> {
 
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToCategory(String categoryTitle) {
+    final key = _categoryKeys[categoryTitle];
+    if (key != null && key.currentContext != null) {
+      Scrollable.ensureVisible(
+        key.currentContext!,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   // -------------------- UI TAB BUILDERS --------------------
@@ -226,31 +245,37 @@ class _VisitorScreenState extends State<VisitorScreen> {
                               itemCount: menus.length,
                               itemBuilder: (context, index) {
                                 final menu = menus[index];
-                                return Container(
-                                  width: 80,
-                                  margin: const EdgeInsets.only(right: 16),
-                                  child: Column(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 30,
-                                        backgroundColor: Colors.grey[100],
-                                        child: const Icon(
-                                          Icons.fastfood,
-                                          color: Colors.black54,
+                                return GestureDetector(
+                                  onTap: () {
+                                    // Scroll to the category section
+                                    _scrollToCategory(menu.titre);
+                                  },
+                                  child: Container(
+                                    width: 80,
+                                    margin: const EdgeInsets.only(right: 16),
+                                    child: Column(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 30,
+                                          backgroundColor: Colors.grey[100],
+                                          child: const Icon(
+                                            Icons.fastfood,
+                                            color: Colors.black54,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        menu.titre,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          menu.titre,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        textAlign: TextAlign.center,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 );
                               },
@@ -264,7 +289,14 @@ class _VisitorScreenState extends State<VisitorScreen> {
                             final dishes = menu.getPlatDisponibles();
                             if (dishes.isEmpty) return const SizedBox.shrink();
 
+                            // Create or get GlobalKey for this category
+                            _categoryKeys.putIfAbsent(
+                              menu.titre,
+                              () => GlobalKey(),
+                            );
+
                             return Column(
+                              key: _categoryKeys[menu.titre],
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Padding(
@@ -352,7 +384,9 @@ class _VisitorScreenState extends State<VisitorScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Image
-            Expanded(
+            SizedBox(
+              height: 140,
+              width: double.infinity,
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(16),
@@ -374,67 +408,80 @@ class _VisitorScreenState extends State<VisitorScreen> {
 
             // Content
             Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    plat.nom,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    plat.categorie,
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${plat.prix.toStringAsFixed(2)}dt',
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: Text(
+                        plat.nom,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      if (isClientLoggedIn)
-                        GestureDetector(
-                          onTap: () {
-                            cartService.addToCart(plat, 1);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('${plat.nom} added to cart'),
-                                duration: const Duration(seconds: 1),
-                                backgroundColor: Colors.black,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: const BoxDecoration(
-                              color: Colors.black,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.add,
-                              color: Colors.white,
-                              size: 16,
+                    ),
+                    const SizedBox(height: 2),
+                    SizedBox(
+                      width: double.infinity,
+                      child: Text(
+                        plat.categorie,
+                        style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${plat.prix.toStringAsFixed(2)}dt',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
                             ),
                           ),
                         ),
-                    ],
-                  ),
-                ],
+                        if (isClientLoggedIn)
+                          GestureDetector(
+                            onTap: () {
+                              cartService.addToCart(plat, 1);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${plat.nom} added to cart'),
+                                  duration: const Duration(seconds: 1),
+                                  backgroundColor: Colors.black,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: const BoxDecoration(
+                                color: Colors.black,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 14,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -681,50 +728,104 @@ class _VisitorScreenState extends State<VisitorScreen> {
   }
 
   Widget _buildOrdersTab() {
-    final orderService = OrderService();
-    final orders = orderService.getRecentOrders();
-
-    if (orders.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.shopping_bag_outlined,
-              size: 80,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No orders yet',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Start by adding items to your cart',
-              style: TextStyle(color: Colors.grey[500]),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.restaurant_menu),
-              label: const Text('Browse Menu'),
-              onPressed: () {
-                _onItemTapped(0);
-              },
-            ),
-          ],
-        ),
-      );
+    final user = _currentUser;
+    if (user == null) {
+      return const Center(child: Text('Please log in to view orders'));
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: orders.length,
-      itemBuilder: (context, index) {
-        final order = orders[index];
-        return _buildOrderCard(order);
+    final orderService = OrderService();
+
+    return FutureBuilder<List<Commande>>(
+      future: orderService.getOrdersByClientIdFromFirestore(user.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'Error loading orders',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  snapshot.error.toString(),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+
+        final orders = snapshot.data ?? [];
+
+        if (orders.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.shopping_bag_outlined,
+                  size: 80,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No orders yet',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineSmall?.copyWith(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Start by adding items to your cart',
+                  style: TextStyle(color: Colors.grey[500]),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.restaurant_menu),
+                  label: const Text('Browse Menu'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    _onItemTapped(0);
+                  },
+                ),
+              ],
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            // Trigger a rebuild by calling setState
+            setState(() {});
+          },
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: orders.length,
+            itemBuilder: (context, index) {
+              final order = orders[index];
+              return _buildOrderCard(order);
+            },
+          ),
+        );
       },
     );
   }

@@ -29,8 +29,14 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Manage Categories')),
+      appBar: AppBar(
+        title: const Text('Manage Categories'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+      ),
       floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
         onPressed: () async {
           await Navigator.push(
             context,
@@ -92,8 +98,13 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
+                    backgroundColor: Colors.grey[300],
                     child: Text(
                       menu.titre.isNotEmpty ? menu.titre[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   title: Text(menu.titre),
