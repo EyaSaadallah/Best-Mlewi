@@ -11,6 +11,8 @@ class Commande {
   final List<LigneCommande> lignes;
   final int? livreurId;
   final int? posId;
+  final int? clientId;
+  final int? estimationPreparation; // In minutes
 
   Commande({
     required this.id,
@@ -21,6 +23,8 @@ class Commande {
     required this.lignes,
     this.livreurId,
     this.posId,
+    this.clientId,
+    this.estimationPreparation,
   });
 
   /// Add line item to command

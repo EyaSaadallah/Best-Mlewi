@@ -4,6 +4,7 @@ enum Role { client, gerant, coordinateur, livreur, collaborateur, visiteur }
 /// Enum for command status
 enum StatusCommande {
   created,
+  accepted,
   preparing,
   ready,
   delivering,

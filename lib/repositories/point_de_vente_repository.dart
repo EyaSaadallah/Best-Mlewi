@@ -80,4 +80,32 @@ class PointDeVenteRepository extends FirebaseRepository<PointDeVente> {
       await delete(docId);
     }
   }
+
+  /// Get PointDeVente by coordinateur ID
+  Future<PointDeVente?> getByCoordinateurId(int coordinateurId) async {
+    try {
+      final snapshot = await firestore
+          .collection(collectionName)
+          .where('coordinateurId', isEqualTo: coordinateurId)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return fromFirestore(snapshot.docs.first);
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Error fetching POS by coordinateur ID: $e');
+    }
+  }
+
+  /// Get all Points of Sale
+  Future<List<PointDeVente>> getAll() async {
+    try {
+      final snapshot = await firestore.collection(collectionName).get();
+      return snapshot.docs.map((doc) => fromFirestore(doc)).toList();
+    } catch (e) {
+      throw Exception('Error fetching all POS: $e');
+    }
+  }
 }

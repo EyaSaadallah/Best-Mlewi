@@ -998,6 +998,8 @@ class _VisitorScreenState extends State<VisitorScreen> {
     switch (status) {
       case StatusCommande.created:
         return Colors.blue;
+      case StatusCommande.accepted:
+        return Colors.teal;
       case StatusCommande.preparing:
         return Colors.orange;
       case StatusCommande.ready:

@@ -6,11 +6,14 @@ import '../models/client.dart';
 import 'pos_management_screen.dart';
 import 'menu_management_screen.dart';
 import 'collaborateur_management_screen.dart';
+import 'gerant/orders_management_screen.dart';
 import '../repositories/utilisateur_repository.dart';
 import '../services/notification_service.dart';
 import '../models/notification.dart' as notif_model;
 import 'profile_edit_screen.dart';
 import '../widgets/gerant_dashboard.dart';
+import 'coordinateur/coordinateur_orders_screen.dart';
+import 'livreur/livreur_orders_screen.dart';
 
 /// Home screen showing different content based on user role
 class HomeScreen extends StatefulWidget {
@@ -169,8 +172,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
-        // Explicitly add drawer button for gerant
-        leading: user.role == Role.gerant
+        // Explicitly add drawer button for gerant, coordinateur, and livreur
+        leading:
+            (user.role == Role.gerant ||
+                user.role == Role.coordinateur ||
+                user.role == Role.livreur)
             ? IconButton(
                 icon: const Icon(Icons.menu),
                 onPressed: () {
@@ -191,8 +197,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      // Add drawer for gerant users
-      drawer: user.role == Role.gerant ? _buildGerantDrawer() : null,
+      // Add drawer for gerant, coordinateur, and livreur
+      drawer:
+          (user.role == Role.gerant ||
+              user.role == Role.coordinateur ||
+              user.role == Role.livreur)
+          ? _buildAppDrawer()
+          : null,
       body: Column(
         children: [
           // Only show banner for clients, not for staff
@@ -220,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildGerantDrawer() {
+  Widget _buildAppDrawer() {
     final user = _authService.currentUser;
     return Drawer(
       child: ListView(
@@ -257,9 +268,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Manager',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                Text(
+                  user?.role.name.toUpperCase() ?? '',
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
@@ -272,42 +283,85 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           const Divider(),
-          ListTile(
-            leading: const Icon(Icons.assignment, color: Colors.black),
-            title: const Text('Manage Commands'),
-            subtitle: const Text('View and manage all orders'),
-            onTap: () {
-              _scaffoldKey.currentState?.closeDrawer();
-              // TODO: Navigate to commands management
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.location_on, color: Colors.black),
-            title: const Text('Sales Points'),
-            subtitle: const Text('Manage restaurant locations'),
-            onTap: () {
-              _scaffoldKey.currentState?.closeDrawer();
-              _homeNavigatorKey.currentState?.pushNamed('/pos');
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.restaurant, color: Colors.black),
-            title: const Text('Manage Categories'),
-            subtitle: const Text('Manage menus and dishes'),
-            onTap: () {
-              _scaffoldKey.currentState?.closeDrawer();
-              _homeNavigatorKey.currentState?.pushNamed('/menu');
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.people, color: Colors.black),
-            title: const Text('Collaborators'),
-            subtitle: const Text('Manage staff and team members'),
-            onTap: () {
-              _scaffoldKey.currentState?.closeDrawer();
-              _homeNavigatorKey.currentState?.pushNamed('/collaborateurs');
-            },
-          ),
+
+          if (user?.role == Role.gerant) ...[
+            ListTile(
+              leading: const Icon(Icons.assignment, color: Colors.black),
+              title: const Text('Manage Commands'),
+              subtitle: const Text('View and manage all orders'),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const OrdersManagementScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.location_on, color: Colors.black),
+              title: const Text('Sales Points'),
+              subtitle: const Text('Manage restaurant locations'),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                _homeNavigatorKey.currentState?.pushNamed('/pos');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.restaurant, color: Colors.black),
+              title: const Text('Manage Categories'),
+              subtitle: const Text('Manage menus and dishes'),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                _homeNavigatorKey.currentState?.pushNamed('/menu');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.people, color: Colors.black),
+              title: const Text('Collaborators'),
+              subtitle: const Text('Manage staff and team members'),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                _homeNavigatorKey.currentState?.pushNamed('/collaborateurs');
+              },
+            ),
+          ],
+
+          if (user?.role == Role.coordinateur) ...[
+            ListTile(
+              leading: const Icon(Icons.checklist_rtl, color: Colors.black),
+              title: const Text('Coordinate Orders'),
+              subtitle: const Text('View active orders for your POS'),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CoordinateurOrdersScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
+
+          if (user?.role == Role.livreur) ...[
+            ListTile(
+              leading: const Icon(Icons.local_shipping, color: Colors.black),
+              title: const Text('My Deliveries'),
+              subtitle: const Text('View your assigned orders'),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LivreurOrdersScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
+
           const Divider(),
           ListTile(
             leading: const Icon(Icons.settings, color: Colors.black),
@@ -316,15 +370,6 @@ class _HomeScreenState extends State<HomeScreen> {
             onTap: () {
               _scaffoldKey.currentState?.closeDrawer();
               // TODO: Navigate to settings
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.bar_chart, color: Colors.black),
-            title: const Text('Reports'),
-            subtitle: const Text('View analytics and reports'),
-            onTap: () {
-              _scaffoldKey.currentState?.closeDrawer();
-              // TODO: Navigate to reports
             },
           ),
         ],
@@ -971,7 +1016,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Track Preparation',
                   'Monitor order preparation',
                   Icons.track_changes,
-                  () {},
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CoordinateurOrdersScreen(),
+                      ),
+                    );
+                  },
                   color: Colors.black,
                 ),
               ],
@@ -1031,7 +1083,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Active Deliveries',
                   'Track current deliveries',
                   Icons.local_shipping,
-                  () {},
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LivreurOrdersScreen(),
+                      ),
+                    );
+                  },
                   color: Colors.black,
                 ),
                 const SizedBox(height: 12),

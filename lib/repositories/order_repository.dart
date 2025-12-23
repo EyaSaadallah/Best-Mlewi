@@ -169,6 +169,8 @@ class OrderRepository extends FirebaseRepository<Commande> {
       lignes: lignes,
       livreurId: data['livreurId'] as int?,
       posId: data['posId'] as int?,
+      clientId: data['clientId'] as int?,
+      estimationPreparation: data['estimationPreparation'] as int?,
     );
   }
 
@@ -201,6 +203,68 @@ class OrderRepository extends FirebaseRepository<Commande> {
           .toList(),
       'livreurId': order.livreurId,
       'posId': order.posId,
+      'clientId': order.clientId,
+      'estimationPreparation': order.estimationPreparation,
     };
+  }
+
+  /// Get all active orders (not created, delivered, or cancelled)
+  /// Used to check for busy livreurs
+  Future<List<Commande>> getActiveOrders() async {
+    try {
+      final snapshot = await firestore
+          .collection(collectionName)
+          .where(
+            'statut',
+            whereIn: [
+              StatusCommande.accepted.name,
+              StatusCommande.preparing.name,
+              StatusCommande.ready.name,
+              StatusCommande.delivering.name,
+            ],
+          )
+          .get();
+      return snapshot.docs.map((doc) => fromFirestore(doc)).toList();
+    } catch (e) {
+      throw Exception('Error fetching active orders: $e');
+    }
+  }
+
+  /// Get orders assigned to a specific livreur
+  Future<List<Commande>> getOrdersByLivreurId(int livreurId) async {
+    try {
+      final snapshot = await firestore
+          .collection(collectionName)
+          .where('livreurId', isEqualTo: livreurId)
+          .where(
+            'statut',
+            whereIn: [
+              StatusCommande.ready.name,
+              StatusCommande.delivering.name,
+              StatusCommande.delivered.name,
+            ],
+          )
+          .get();
+      return snapshot.docs.map((doc) => fromFirestore(doc)).toList();
+    } catch (e) {
+      // It's possible the index isn't created for this specific composite query
+      // Fallback: fetch by livreurId and sort manually if needed, or ask user to create index
+      // For now, simpler query:
+      final snapshot = await firestore
+          .collection(collectionName)
+          .where('livreurId', isEqualTo: livreurId)
+          .get();
+
+      final allOrders = snapshot.docs.map((doc) => fromFirestore(doc)).toList();
+      // Filter in memory to show relevant statuses
+      return allOrders
+          .where(
+            (o) =>
+                o.statut == StatusCommande.ready ||
+                o.statut == StatusCommande.delivering ||
+                o.statut == StatusCommande.delivered,
+          )
+          .toList();
+    }
   }
 }
