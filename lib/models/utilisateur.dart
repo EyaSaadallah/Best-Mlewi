@@ -15,6 +15,9 @@ class Utilisateur {
   final bool isAvailable;
   final String? fcmToken;
   final String? imageUrl;
+  final String? adresse;
+  final double? latitude;
+  final double? longitude;
 
   Utilisateur({
     required this.id,
@@ -30,6 +33,9 @@ class Utilisateur {
     this.isAvailable = true,
     this.fcmToken,
     this.imageUrl,
+    this.adresse,
+    this.latitude,
+    this.longitude,
   });
 
   /// Login with email and password

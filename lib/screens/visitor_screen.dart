@@ -7,6 +7,9 @@ import '../models/plat.dart';
 import '../services/firebase_auth_service.dart';
 import '../models/utilisateur.dart';
 import '../models/client.dart';
+import '../models/livreur.dart';
+import '../models/coordinateur.dart';
+import '../models/collaborateur.dart';
 import '../models/enums.dart';
 import '../services/notification_service.dart';
 import '../models/notification.dart' as notif_model;
@@ -551,7 +554,60 @@ class _VisitorScreenState extends State<VisitorScreen> {
                               isAffected: user.isAffected,
                               isAvailable: user.isAvailable,
                               adresse: result['adresse'],
+                              latitude: result['latitude'],
+                              longitude: result['longitude'],
                               imageUrl: result['imageUrl'],
+                            );
+                          } else if (user.role == Role.livreur) {
+                            updatedUser = Livreur(
+                              id: user.id,
+                              nom: result['nom'],
+                              prenom: result['prenom'],
+                              email: user.email,
+                              motDePasse: user.motDePasse,
+                              telephone: result['telephone'],
+                              dateInscription: user.dateInscription,
+                              isActive: user.isActive,
+                              isAffected: user.isAffected,
+                              isAvailable: user.isAvailable,
+                              imageUrl: result['imageUrl'],
+                              adresse: result['adresse'],
+                              latitude: result['latitude'],
+                              longitude: result['longitude'],
+                            );
+                          } else if (user.role == Role.coordinateur) {
+                            updatedUser = Coordinateur(
+                              id: user.id,
+                              nom: result['nom'],
+                              prenom: result['prenom'],
+                              email: user.email,
+                              motDePasse: user.motDePasse,
+                              telephone: result['telephone'],
+                              dateInscription: user.dateInscription,
+                              isActive: user.isActive,
+                              isAffected: user.isAffected,
+                              isAvailable: user.isAvailable,
+                              imageUrl: result['imageUrl'],
+                              adresse: result['adresse'],
+                              latitude: result['latitude'],
+                              longitude: result['longitude'],
+                            );
+                          } else if (user.role == Role.collaborateur) {
+                            updatedUser = Collaborateur(
+                              id: user.id,
+                              nom: result['nom'],
+                              prenom: result['prenom'],
+                              email: user.email,
+                              motDePasse: user.motDePasse,
+                              telephone: result['telephone'],
+                              dateInscription: user.dateInscription,
+                              isActive: user.isActive,
+                              isAffected: user.isAffected,
+                              isAvailable: user.isAvailable,
+                              imageUrl: result['imageUrl'],
+                              adresse: result['adresse'],
+                              latitude: result['latitude'],
+                              longitude: result['longitude'],
                             );
                           } else {
                             updatedUser = Utilisateur(
@@ -567,6 +623,9 @@ class _VisitorScreenState extends State<VisitorScreen> {
                               isAffected: user.isAffected,
                               isAvailable: user.isAvailable,
                               imageUrl: result['imageUrl'],
+                              adresse: result['adresse'],
+                              latitude: result['latitude'],
+                              longitude: result['longitude'],
                             );
                           }
 
@@ -631,9 +690,7 @@ class _VisitorScreenState extends State<VisitorScreen> {
           const SizedBox(height: 32),
           _buildProfileItem(Icons.email, 'Email', user.email),
           _buildProfileItem(Icons.phone, 'Phone', user.telephone),
-          if (user is Client &&
-              user.adresse != null &&
-              user.adresse!.isNotEmpty)
+          if (user.adresse != null && user.adresse!.isNotEmpty)
             _buildProfileItem(Icons.location_on, 'Address', user.adresse!),
           _buildProfileItem(
             Icons.calendar_today,
@@ -1096,15 +1153,17 @@ class _VisitorScreenState extends State<VisitorScreen> {
         children: [
           Icon(icon, size: 20, color: Colors.grey[600]),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-              Text(value, style: const TextStyle(fontSize: 16)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                Text(value, style: const TextStyle(fontSize: 16)),
+              ],
+            ),
           ),
         ],
       ),

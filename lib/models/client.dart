@@ -3,39 +3,22 @@ import 'enums.dart';
 
 /// Client user model
 class Client extends Utilisateur {
-  final String? adresse;
-  final double? latitude;
-  final double? longitude;
-
   Client({
-    required int id,
-    required String nom,
-    required String prenom,
-    required String email,
-    required String motDePasse,
-    required String telephone,
-    required DateTime dateInscription,
-    bool isActive = true,
-    bool isAffected = false,
-    bool isAvailable = true,
-    this.adresse,
-    this.latitude,
-    this.longitude,
-    String? imageUrl,
-  }) : super(
-         id: id,
-         nom: nom,
-         prenom: prenom,
-         email: email,
-         motDePasse: motDePasse,
-         telephone: telephone,
-         dateInscription: dateInscription,
-         role: Role.client,
-         isActive: isActive,
-         isAffected: isAffected,
-         isAvailable: isAvailable,
-         imageUrl: imageUrl,
-       );
+    required super.id,
+    required super.nom,
+    required super.prenom,
+    required super.email,
+    required super.motDePasse,
+    required super.telephone,
+    required super.dateInscription,
+    super.isActive = true,
+    super.isAffected = false,
+    super.isAvailable = true,
+    super.adresse,
+    super.latitude,
+    super.longitude,
+    super.imageUrl,
+  }) : super(role: Role.client);
 
   /// Consult menu
   void consulterMenu() {

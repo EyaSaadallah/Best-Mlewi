@@ -13,6 +13,9 @@ class Commande {
   final int? posId;
   final int? clientId;
   final int? estimationPreparation; // In minutes
+  final String? adresse;
+  final double? latitude;
+  final double? longitude;
 
   Commande({
     required this.id,
@@ -25,6 +28,9 @@ class Commande {
     this.posId,
     this.clientId,
     this.estimationPreparation,
+    this.adresse,
+    this.latitude,
+    this.longitude,
   });
 
   /// Add line item to command

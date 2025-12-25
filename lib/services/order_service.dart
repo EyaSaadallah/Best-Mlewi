@@ -63,8 +63,11 @@ class OrderService {
   /// Create order and save to Firestore with client ID
   Future<String> createOrderWithClientId(
     List<LigneCommande> cartItems,
-    int clientId,
-  ) async {
+    int clientId, {
+    String? adresse,
+    double? latitude,
+    double? longitude,
+  }) async {
     try {
       if (cartItems.isEmpty) {
         throw Exception('Cannot create order with empty cart');
@@ -85,6 +88,9 @@ class OrderService {
         totalWithTax: totalWithTax,
         statut: StatusCommande.created,
         lignes: List.from(cartItems),
+        adresse: adresse,
+        latitude: latitude,
+        longitude: longitude,
       );
 
       // Save to Firestore

@@ -3,6 +3,8 @@ import '../services/firebase_auth_service.dart';
 import '../services/email_service.dart';
 import '../utils/validators.dart';
 import '../models/enums.dart';
+import 'map_picker_screen.dart';
+import 'package:latlong2/latlong.dart';
 
 /// Sign up screen for adding a new collaborator
 class CollaborateurSignupScreen extends StatefulWidget {
@@ -21,6 +23,9 @@ class _CollaborateurSignupScreenState extends State<CollaborateurSignupScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _addressController = TextEditingController();
+  double? _latitude;
+  double? _longitude;
   final _authService = FirebaseAuthService();
   final _emailService = EmailService();
   bool _isLoading = false;
@@ -37,6 +42,7 @@ class _CollaborateurSignupScreenState extends State<CollaborateurSignupScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
@@ -58,6 +64,9 @@ class _CollaborateurSignupScreenState extends State<CollaborateurSignupScreen> {
         _firstNameController.text.trim(),
         _phoneController.text.trim(),
         role: _selectedRole,
+        adresse: _addressController.text.trim(),
+        latitude: _latitude,
+        longitude: _longitude,
       );
 
       if (success) {
@@ -380,6 +389,56 @@ class _CollaborateurSignupScreenState extends State<CollaborateurSignupScreen> {
                   _passwordController.text,
                 ),
                 textInputAction: TextInputAction.done,
+              ),
+              const SizedBox(height: 16),
+              // Address field with Map Picker
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _addressController,
+                      decoration: InputDecoration(
+                        labelText: 'Address',
+                        hintText: 'Enter address',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: const Icon(Icons.location_on),
+                        enabled: !_isLoading,
+                      ),
+                      maxLines: 2,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.map, color: Colors.blue),
+                    onPressed: _isLoading
+                        ? null
+                        : () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => MapPickerScreen(
+                                  initialLocation:
+                                      (_latitude != null && _longitude != null)
+                                      ? LatLng(_latitude!, _longitude!)
+                                      : null,
+                                ),
+                              ),
+                            );
+
+                            if (result != null) {
+                              setState(() {
+                                _latitude =
+                                    (result['location'] as LatLng).latitude;
+                                _longitude =
+                                    (result['location'] as LatLng).longitude;
+                                _addressController.text = result['address'];
+                              });
+                            }
+                          },
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               // Role selection

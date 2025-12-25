@@ -15,6 +15,9 @@ class Livreur extends Utilisateur {
     super.isAffected = false,
     super.isAvailable = true,
     super.imageUrl,
+    super.adresse,
+    super.latitude,
+    super.longitude,
   }) : super(role: Role.livreur);
 
   /// Follow delivery

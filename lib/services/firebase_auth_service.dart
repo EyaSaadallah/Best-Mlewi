@@ -3,6 +3,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../models/utilisateur.dart';
 import '../models/client.dart';
 import '../models/enums.dart';
+import '../models/collaborateur.dart';
+import '../models/coordinateur.dart';
+import '../models/livreur.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../config/firebase_options.dart';
 import '../repositories/utilisateur_repository.dart';
@@ -61,6 +64,45 @@ class FirebaseAuthService {
             latitude: latitude,
             longitude: longitude,
           );
+        } else if (role == Role.livreur) {
+          utilisateur = Livreur(
+            id: DateTime.now().millisecondsSinceEpoch,
+            nom: nom,
+            prenom: prenom,
+            email: email,
+            motDePasse: '',
+            telephone: telephone,
+            dateInscription: DateTime.now(),
+            adresse: adresse,
+            latitude: latitude,
+            longitude: longitude,
+          );
+        } else if (role == Role.coordinateur) {
+          utilisateur = Coordinateur(
+            id: DateTime.now().millisecondsSinceEpoch,
+            nom: nom,
+            prenom: prenom,
+            email: email,
+            motDePasse: '',
+            telephone: telephone,
+            dateInscription: DateTime.now(),
+            adresse: adresse,
+            latitude: latitude,
+            longitude: longitude,
+          );
+        } else if (role == Role.collaborateur) {
+          utilisateur = Collaborateur(
+            id: DateTime.now().millisecondsSinceEpoch,
+            nom: nom,
+            prenom: prenom,
+            email: email,
+            motDePasse: '',
+            telephone: telephone,
+            dateInscription: DateTime.now(),
+            adresse: adresse,
+            latitude: latitude,
+            longitude: longitude,
+          );
         } else {
           utilisateur = Utilisateur(
             id: DateTime.now().millisecondsSinceEpoch,
@@ -71,6 +113,9 @@ class FirebaseAuthService {
             telephone: telephone,
             dateInscription: DateTime.now(),
             role: role,
+            adresse: adresse,
+            latitude: latitude,
+            longitude: longitude,
           );
         }
 
@@ -98,6 +143,9 @@ class FirebaseAuthService {
     String prenom,
     String telephone, {
     Role role = Role.collaborateur,
+    String? adresse,
+    double? latitude,
+    double? longitude,
   }) async {
     FirebaseApp? secondaryApp;
     try {
@@ -117,16 +165,61 @@ class FirebaseAuthService {
 
       if (userCredential.user != null) {
         // Create Firestore user document using the MAIN app's repository/firestore
-        final utilisateur = Utilisateur(
-          id: DateTime.now().millisecondsSinceEpoch,
-          nom: nom,
-          prenom: prenom,
-          email: email,
-          motDePasse: '', // Empty - password is managed by Firebase Auth
-          telephone: telephone,
-          dateInscription: DateTime.now(),
-          role: role,
-        );
+        final Utilisateur utilisateur;
+        if (role == Role.livreur) {
+          utilisateur = Livreur(
+            id: DateTime.now().millisecondsSinceEpoch,
+            nom: nom,
+            prenom: prenom,
+            email: email,
+            motDePasse: '',
+            telephone: telephone,
+            dateInscription: DateTime.now(),
+            adresse: adresse,
+            latitude: latitude,
+            longitude: longitude,
+          );
+        } else if (role == Role.coordinateur) {
+          utilisateur = Coordinateur(
+            id: DateTime.now().millisecondsSinceEpoch,
+            nom: nom,
+            prenom: prenom,
+            email: email,
+            motDePasse: '',
+            telephone: telephone,
+            dateInscription: DateTime.now(),
+            adresse: adresse,
+            latitude: latitude,
+            longitude: longitude,
+          );
+        } else if (role == Role.collaborateur) {
+          utilisateur = Collaborateur(
+            id: DateTime.now().millisecondsSinceEpoch,
+            nom: nom,
+            prenom: prenom,
+            email: email,
+            motDePasse: '',
+            telephone: telephone,
+            dateInscription: DateTime.now(),
+            adresse: adresse,
+            latitude: latitude,
+            longitude: longitude,
+          );
+        } else {
+          utilisateur = Utilisateur(
+            id: DateTime.now().millisecondsSinceEpoch,
+            nom: nom,
+            prenom: prenom,
+            email: email,
+            motDePasse: '',
+            telephone: telephone,
+            dateInscription: DateTime.now(),
+            role: role,
+            adresse: adresse,
+            latitude: latitude,
+            longitude: longitude,
+          );
+        }
 
         await _userRepository.create(utilisateur);
         return true;

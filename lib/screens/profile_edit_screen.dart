@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../models/utilisateur.dart';
-import '../models/client.dart';
+
 import '../models/enums.dart';
 import '../services/imagekit_service.dart';
 import 'map_picker_screen.dart';
@@ -41,13 +41,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _nomController = TextEditingController(text: widget.user.nom);
     _prenomController = TextEditingController(text: widget.user.prenom);
     _telephoneController = TextEditingController(text: widget.user.telephone);
-    _adresseController = TextEditingController(
-      text: widget.user is Client ? (widget.user as Client).adresse ?? '' : '',
-    );
-    if (widget.user is Client) {
-      _latitude = (widget.user as Client).latitude;
-      _longitude = (widget.user as Client).longitude;
-    }
+    _adresseController = TextEditingController(text: widget.user.adresse ?? '');
+    _latitude = widget.user.latitude;
+    _longitude = widget.user.longitude;
     _passwordController = TextEditingController();
     _oldPasswordController = TextEditingController();
     _imageUrl = widget.user.imageUrl;
@@ -230,8 +226,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     value?.isEmpty ?? true ? 'Required' : null,
               ),
               const SizedBox(height: 16),
-              // Show address field only for clients
-              if (widget.user.role == Role.client) ...[
+              // Show address field for clients and staff
+              if (widget.user.role == Role.client ||
+                  widget.user.role == Role.livreur ||
+                  widget.user.role == Role.coordinateur ||
+                  widget.user.role == Role.collaborateur) ...[
                 Row(
                   children: [
                     Expanded(
@@ -403,8 +402,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                                 'imageUrl': newImageUrl,
                               };
 
-                              // Add address if user is client
-                              if (widget.user.role == Role.client) {
+                              // Add address if user is client or staff
+                              if (widget.user.role == Role.client ||
+                                  widget.user.role == Role.livreur ||
+                                  widget.user.role == Role.coordinateur ||
+                                  widget.user.role == Role.collaborateur) {
                                 result['adresse'] =
                                     _adresseController.text.isNotEmpty
                                     ? _adresseController.text

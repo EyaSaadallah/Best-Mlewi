@@ -205,6 +205,9 @@ class OrderRepository extends FirebaseRepository<Commande> {
       posId: data['posId'] as int?,
       clientId: data['clientId'] as int?,
       estimationPreparation: data['estimationPreparation'] as int?,
+      adresse: data['adresse'] as String?,
+      latitude: (data['latitude'] as num?)?.toDouble(),
+      longitude: (data['longitude'] as num?)?.toDouble(),
     );
   }
 
@@ -239,6 +242,9 @@ class OrderRepository extends FirebaseRepository<Commande> {
       'posId': order.posId,
       'clientId': order.clientId,
       'estimationPreparation': order.estimationPreparation,
+      'adresse': order.adresse,
+      'latitude': order.latitude,
+      'longitude': order.longitude,
     };
   }
 

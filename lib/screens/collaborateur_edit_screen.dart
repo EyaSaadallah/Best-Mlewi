@@ -53,6 +53,14 @@ class _CollaborateurEditScreenState extends State<CollaborateurEditScreen> {
       telephone: _phoneController.text.trim(),
       dateInscription: widget.collaborateur.dateInscription,
       role: _selectedRole,
+      isActive: widget.collaborateur.isActive,
+      isAffected: widget.collaborateur.isAffected,
+      isAvailable: widget.collaborateur.isAvailable,
+      fcmToken: widget.collaborateur.fcmToken,
+      imageUrl: widget.collaborateur.imageUrl,
+      adresse: widget.collaborateur.adresse,
+      latitude: widget.collaborateur.latitude,
+      longitude: widget.collaborateur.longitude,
     );
 
     Navigator.pop(context, updatedUser);

@@ -220,7 +220,12 @@ class _SignupScreenState extends State<SignupScreen> {
                             final result = await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const MapPickerScreen(),
+                                builder: (context) => MapPickerScreen(
+                                  initialLocation:
+                                      (_latitude != null && _longitude != null)
+                                      ? LatLng(_latitude!, _longitude!)
+                                      : null,
+                                ),
                               ),
                             );
 

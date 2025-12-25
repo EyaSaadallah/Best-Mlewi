@@ -4,6 +4,8 @@ import '../repositories/point_de_vente_repository.dart';
 import '../repositories/utilisateur_repository.dart';
 import '../models/utilisateur.dart';
 import '../models/enums.dart';
+import 'map_picker_screen.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../services/notification_service.dart';
 
@@ -24,7 +26,10 @@ class _PosEditScreenState extends State<PosEditScreen> {
 
   late TextEditingController _nomController;
   late TextEditingController _adresseController;
-  late TextEditingController _horairesController;
+  TimeOfDay _openingTime = const TimeOfDay(hour: 8, minute: 0);
+  TimeOfDay _closingTime = const TimeOfDay(hour: 22, minute: 0);
+  double? _latitude;
+  double? _longitude;
   bool _actif = true;
   bool _isLoading = false;
 
@@ -38,9 +43,12 @@ class _PosEditScreenState extends State<PosEditScreen> {
     super.initState();
     _nomController = TextEditingController(text: widget.pos?.nom ?? '');
     _adresseController = TextEditingController(text: widget.pos?.adresse ?? '');
-    _horairesController = TextEditingController(
-      text: widget.pos?.horaires ?? '',
-    );
+    if (widget.pos != null) {
+      _openingTime = _parseTime(widget.pos!.openingTime);
+      _closingTime = _parseTime(widget.pos!.closingTime);
+    }
+    _latitude = widget.pos?.latitude;
+    _longitude = widget.pos?.longitude;
     _actif = widget.pos?.actif ?? true;
     _selectedCoordinateurId = widget.pos?.coordinateurId;
     _selectedCollaborateurIds = List.from(widget.pos?.collaborateurIds ?? []);
@@ -83,8 +91,23 @@ class _PosEditScreenState extends State<PosEditScreen> {
   void dispose() {
     _nomController.dispose();
     _adresseController.dispose();
-    _horairesController.dispose();
     super.dispose();
+  }
+
+  TimeOfDay _parseTime(String timeStr) {
+    try {
+      final parts = timeStr.split(':');
+      if (parts.length != 2) return const TimeOfDay(hour: 8, minute: 0);
+      return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    } catch (e) {
+      return const TimeOfDay(hour: 8, minute: 0);
+    }
+  }
+
+  String _formatTime(TimeOfDay time) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 
   Future<void> _save() async {
@@ -96,7 +119,10 @@ class _PosEditScreenState extends State<PosEditScreen> {
       id: widget.pos?.id ?? DateTime.now().millisecondsSinceEpoch,
       nom: _nomController.text,
       adresse: _adresseController.text,
-      horaires: _horairesController.text,
+      latitude: _latitude,
+      longitude: _longitude,
+      openingTime: _formatTime(_openingTime),
+      closingTime: _formatTime(_closingTime),
       actif: _actif,
       collaborateurs: widget.pos?.collaborateurs ?? [],
       menu: widget.pos?.menu,
@@ -267,33 +293,104 @@ class _PosEditScreenState extends State<PosEditScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _adresseController,
-                      decoration: const InputDecoration(
-                        labelText: 'Address',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter an address';
-                        }
-                        return null;
-                      },
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _adresseController,
+                            decoration: const InputDecoration(
+                              labelText: 'Address',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter an address';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.map, color: Colors.blue),
+                          onPressed: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => MapPickerScreen(
+                                  initialLocation:
+                                      (_latitude != null && _longitude != null)
+                                      ? LatLng(_latitude!, _longitude!)
+                                      : null,
+                                ),
+                              ),
+                            );
+
+                            if (result != null) {
+                              setState(() {
+                                _latitude =
+                                    (result['location'] as LatLng).latitude;
+                                _longitude =
+                                    (result['location'] as LatLng).longitude;
+                                _adresseController.text = result['address'];
+                              });
+                            }
+                          },
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _horairesController,
-                      decoration: const InputDecoration(
-                        labelText: 'Opening Hours',
-                        border: OutlineInputBorder(),
-                        hintText: 'e.g. Mon-Sun 09:00-22:00',
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter opening hours';
-                        }
-                        return null;
-                      },
+                    Text(
+                      'Working Hours',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: _openingTime,
+                              );
+                              if (picked != null) {
+                                setState(() => _openingTime = picked);
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Opening Time',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.access_time),
+                              ),
+                              child: Text(_openingTime.format(context)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: _closingTime,
+                              );
+                              if (picked != null) {
+                                setState(() => _closingTime = picked);
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Closing Time',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.access_time_filled),
+                              ),
+                              child: Text(_closingTime.format(context)),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     SwitchListTile(

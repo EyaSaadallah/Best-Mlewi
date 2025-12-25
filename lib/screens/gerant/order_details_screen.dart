@@ -146,7 +146,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
       if (mounted) {
         setState(() {
-          _availablePOS = posList.where((p) => p.actif).toList();
+          _availablePOS = posList.where((p) => p.isOpenNow).toList();
 
           // Filter: Role Livreur AND Active/Available AND Not Busy
           _availableLivreurs = livreurs.where((l) {

@@ -130,6 +130,9 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           isAffected: baseUser.isAffected,
           isAvailable: baseUser.isAvailable,
           imageUrl: baseUser.imageUrl,
+          adresse: data['adresse'] as String?,
+          latitude: (data['latitude'] as num?)?.toDouble(),
+          longitude: (data['longitude'] as num?)?.toDouble(),
         );
       case Role.livreur:
         return Livreur(
@@ -144,6 +147,9 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           isAffected: baseUser.isAffected,
           isAvailable: baseUser.isAvailable,
           imageUrl: baseUser.imageUrl,
+          adresse: data['adresse'] as String?,
+          latitude: (data['latitude'] as num?)?.toDouble(),
+          longitude: (data['longitude'] as num?)?.toDouble(),
         );
       case Role.collaborateur:
         return Collaborateur(
@@ -158,6 +164,9 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           isAffected: baseUser.isAffected,
           isAvailable: baseUser.isAvailable,
           imageUrl: baseUser.imageUrl,
+          adresse: data['adresse'] as String?,
+          latitude: (data['latitude'] as num?)?.toDouble(),
+          longitude: (data['longitude'] as num?)?.toDouble(),
         );
       case Role.visiteur:
         return Visiteur(
@@ -194,12 +203,10 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
       'imageUrl': user.imageUrl,
     };
 
-    // Add address field if user is a Client
-    if (user is Client) {
-      data['adresse'] = user.adresse;
-      data['latitude'] = user.latitude;
-      data['longitude'] = user.longitude;
-    }
+    // Add address field for all users if available
+    data['adresse'] = user.adresse;
+    data['latitude'] = user.latitude;
+    data['longitude'] = user.longitude;
 
     return data;
   }

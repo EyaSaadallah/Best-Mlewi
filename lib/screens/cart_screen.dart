@@ -4,6 +4,9 @@ import '../services/cart_service.dart';
 import '../services/order_service.dart';
 import '../services/firebase_auth_service.dart' as auth_service;
 import '../models/ligne_commande.dart';
+import 'map_picker_screen.dart';
+import 'package:latlong2/latlong.dart';
+import '../models/utilisateur.dart';
 
 /// Shopping cart screen
 class CartScreen extends StatefulWidget {
@@ -347,27 +350,51 @@ class _CartScreenState extends State<CartScreen> {
                         return;
                       }
 
-                      // Create order and save to Firestore with client ID
-                      final firestoreId = await orderService
-                          .createOrderWithClientId(cartItems, currentUser.id);
-
+                      // Show Address Selection Dialog
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Order placed successfully! ID: $firestoreId',
+                        final addressResult =
+                            await showDialog<Map<String, dynamic>>(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (context) => _AddressSelectionDialog(
+                                currentUser: currentUser,
+                              ),
+                            );
+
+                        if (addressResult == null) return; // User cancelled
+
+                        final String? finalAddress = addressResult['address'];
+                        final double? finalLat = addressResult['latitude'];
+                        final double? finalLng = addressResult['longitude'];
+
+                        // Create order and save to Firestore with client ID
+                        final firestoreId = await orderService
+                            .createOrderWithClientId(
+                              cartItems,
+                              currentUser.id,
+                              adresse: finalAddress,
+                              latitude: finalLat,
+                              longitude: finalLng,
+                            );
+
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Order placed successfully! ID: $firestoreId',
+                              ),
+                              backgroundColor: Colors.green,
+                              duration: const Duration(seconds: 2),
                             ),
-                            backgroundColor: Colors.green,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
+                          );
 
-                        // Clear cart after successful order
-                        setState(() {
-                          _cartService.clearCart();
-                        });
+                          // Clear cart after successful order
+                          setState(() {
+                            _cartService.clearCart();
+                          });
 
-                        Navigator.pop(context);
+                          Navigator.pop(context);
+                        }
                       }
                     } catch (e) {
                       if (mounted) {
@@ -429,6 +456,141 @@ class _CartScreenState extends State<CartScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _AddressSelectionDialog extends StatefulWidget {
+  final Utilisateur currentUser;
+
+  const _AddressSelectionDialog({required this.currentUser});
+
+  @override
+  State<_AddressSelectionDialog> createState() =>
+      _AddressSelectionDialogState();
+}
+
+class _AddressSelectionDialogState extends State<_AddressSelectionDialog> {
+  bool _useProfileAddress = true;
+  final _customAddressController = TextEditingController();
+  double? _customLat;
+  double? _customLng;
+
+  @override
+  void initState() {
+    super.initState();
+    _useProfileAddress = widget.currentUser.adresse != null;
+  }
+
+  @override
+  void dispose() {
+    _customAddressController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Delivery Address'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RadioListTile<bool>(
+            title: const Text('My Profile Address'),
+            subtitle: Text(
+              widget.currentUser.adresse ?? 'No address set in profile',
+              style: const TextStyle(fontSize: 12),
+            ),
+            value: true,
+            groupValue: _useProfileAddress,
+            onChanged: widget.currentUser.adresse != null
+                ? (value) {
+                    setState(() => _useProfileAddress = value!);
+                  }
+                : null,
+          ),
+          RadioListTile<bool>(
+            title: const Text('Other Address'),
+            value: false,
+            groupValue: _useProfileAddress,
+            onChanged: (value) {
+              setState(() => _useProfileAddress = value!);
+            },
+          ),
+          if (!_useProfileAddress) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _customAddressController,
+                    decoration: const InputDecoration(
+                      hintText: 'Custom address',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
+                    readOnly: true,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.map, color: Colors.blue),
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MapPickerScreen(
+                          initialLocation:
+                              (_customLat != null && _customLng != null)
+                              ? LatLng(_customLat!, _customLng!)
+                              : null,
+                        ),
+                      ),
+                    );
+
+                    if (result != null) {
+                      setState(() {
+                        _customLat = (result['location'] as LatLng).latitude;
+                        _customLng = (result['location'] as LatLng).longitude;
+                        _customAddressController.text = result['address'];
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (_useProfileAddress) {
+              Navigator.pop(context, {
+                'address': widget.currentUser.adresse,
+                'latitude': widget.currentUser.latitude,
+                'longitude': widget.currentUser.longitude,
+              });
+            } else {
+              if (_customAddressController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please select an address')),
+                );
+                return;
+              }
+              Navigator.pop(context, {
+                'address': _customAddressController.text,
+                'latitude': _customLat,
+                'longitude': _customLng,
+              });
+            }
+          },
+          child: const Text('Confirm Order'),
+        ),
+      ],
     );
   }
 }

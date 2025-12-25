@@ -3,6 +3,9 @@ import '../services/firebase_auth_service.dart';
 import '../models/enums.dart';
 import '../models/utilisateur.dart';
 import '../models/client.dart';
+import '../models/livreur.dart';
+import '../models/coordinateur.dart';
+import '../models/collaborateur.dart';
 import 'pos_management_screen.dart';
 import 'menu_management_screen.dart';
 import 'collaborateur_management_screen.dart';
@@ -717,9 +720,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Info Cards
           _buildProfileItem(Icons.email, 'Email', user.email),
           _buildProfileItem(Icons.phone, 'Phone', user.telephone),
-          if (user is Client &&
-              user.adresse != null &&
-              user.adresse!.isNotEmpty)
+          if (user.adresse != null && user.adresse!.isNotEmpty)
             _buildProfileItem(Icons.location_on, 'Address', user.adresse!),
           _buildProfileItem(
             Icons.calendar_today,
@@ -791,6 +792,57 @@ class _HomeScreenState extends State<HomeScreen> {
             longitude: result['longitude'],
             imageUrl: result['imageUrl'],
           );
+        } else if (user.role == Role.livreur) {
+          updatedUser = Livreur(
+            id: user.id,
+            nom: result['nom'],
+            prenom: result['prenom'],
+            email: user.email,
+            motDePasse: user.motDePasse,
+            telephone: result['telephone'],
+            dateInscription: user.dateInscription,
+            isActive: user.isActive,
+            isAffected: user.isAffected,
+            isAvailable: user.isAvailable,
+            imageUrl: result['imageUrl'],
+            adresse: result['adresse'],
+            latitude: result['latitude'],
+            longitude: result['longitude'],
+          );
+        } else if (user.role == Role.coordinateur) {
+          updatedUser = Coordinateur(
+            id: user.id,
+            nom: result['nom'],
+            prenom: result['prenom'],
+            email: user.email,
+            motDePasse: user.motDePasse,
+            telephone: result['telephone'],
+            dateInscription: user.dateInscription,
+            isActive: user.isActive,
+            isAffected: user.isAffected,
+            isAvailable: user.isAvailable,
+            imageUrl: result['imageUrl'],
+            adresse: result['adresse'],
+            latitude: result['latitude'],
+            longitude: result['longitude'],
+          );
+        } else if (user.role == Role.collaborateur) {
+          updatedUser = Collaborateur(
+            id: user.id,
+            nom: result['nom'],
+            prenom: result['prenom'],
+            email: user.email,
+            motDePasse: user.motDePasse,
+            telephone: result['telephone'],
+            dateInscription: user.dateInscription,
+            isActive: user.isActive,
+            isAffected: user.isAffected,
+            isAvailable: user.isAvailable,
+            imageUrl: result['imageUrl'],
+            adresse: result['adresse'],
+            latitude: result['latitude'],
+            longitude: result['longitude'],
+          );
         } else {
           updatedUser = Utilisateur(
             id: user.id,
@@ -805,6 +857,9 @@ class _HomeScreenState extends State<HomeScreen> {
             isAffected: user.isAffected,
             isAvailable: user.isAvailable,
             imageUrl: result['imageUrl'],
+            adresse: result['adresse'],
+            latitude: result['latitude'],
+            longitude: result['longitude'],
           );
         }
 
@@ -842,15 +897,17 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Icon(icon, size: 20, color: Colors.grey[600]),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-              Text(value, style: const TextStyle(fontSize: 16)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                Text(value, style: const TextStyle(fontSize: 16)),
+              ],
+            ),
           ),
         ],
       ),

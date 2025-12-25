@@ -4,31 +4,21 @@ import 'enums.dart';
 /// Collaborator/Staff member model
 class Collaborateur extends Utilisateur {
   Collaborateur({
-    required int id,
-    required String nom,
-    required String prenom,
-    required String email,
-    required String motDePasse,
-    required String telephone,
-    required DateTime dateInscription,
-    bool isActive = true,
-    bool isAffected = false,
-    bool isAvailable = true,
-    String? imageUrl,
-  }) : super(
-         id: id,
-         nom: nom,
-         prenom: prenom,
-         email: email,
-         motDePasse: motDePasse,
-         telephone: telephone,
-         dateInscription: dateInscription,
-         role: Role.collaborateur,
-         isActive: isActive,
-         isAffected: isAffected,
-         isAvailable: isAvailable,
-         imageUrl: imageUrl,
-       );
+    required super.id,
+    required super.nom,
+    required super.prenom,
+    required super.email,
+    required super.motDePasse,
+    required super.telephone,
+    required super.dateInscription,
+    super.isActive = true,
+    super.isAffected = false,
+    super.isAvailable = true,
+    super.imageUrl,
+    super.adresse,
+    super.latitude,
+    super.longitude,
+  }) : super(role: Role.collaborateur);
 
   /// Activate availability
   void activerDisponibilite() {
