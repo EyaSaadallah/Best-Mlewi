@@ -99,6 +99,8 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
           isAffected: baseUser.isAffected,
           isAvailable: baseUser.isAvailable,
           adresse: data['adresse'] as String?,
+          latitude: (data['latitude'] as num?)?.toDouble(),
+          longitude: (data['longitude'] as num?)?.toDouble(),
           imageUrl: baseUser.imageUrl,
         );
       case Role.gerant:
@@ -195,6 +197,8 @@ class UtilisateurRepository extends FirebaseRepository<Utilisateur> {
     // Add address field if user is a Client
     if (user is Client) {
       data['adresse'] = user.adresse;
+      data['latitude'] = user.latitude;
+      data['longitude'] = user.longitude;
     }
 
     return data;

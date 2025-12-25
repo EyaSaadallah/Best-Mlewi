@@ -4,6 +4,8 @@ import 'enums.dart';
 /// Client user model
 class Client extends Utilisateur {
   final String? adresse;
+  final double? latitude;
+  final double? longitude;
 
   Client({
     required int id,
@@ -17,6 +19,8 @@ class Client extends Utilisateur {
     bool isAffected = false,
     bool isAvailable = true,
     this.adresse,
+    this.latitude,
+    this.longitude,
     String? imageUrl,
   }) : super(
          id: id,
@@ -55,5 +59,5 @@ class Client extends Utilisateur {
 
   @override
   String toString() =>
-      'Client(id: $id, nom: $nom, prenom: $prenom, email: $email)';
+      'Client(id: $id, nom: $nom, prenom: $prenom, email: $email, adresse: $adresse, lat: $latitude, lng: $longitude)';
 }

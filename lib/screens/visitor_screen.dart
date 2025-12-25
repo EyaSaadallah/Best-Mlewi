@@ -11,8 +11,8 @@ import '../models/enums.dart';
 import '../services/notification_service.dart';
 import '../models/notification.dart' as notif_model;
 import '../services/cart_service.dart';
-import '../services/order_service.dart';
 import '../models/commande.dart';
+import '../repositories/order_repository.dart';
 import 'cart_screen.dart';
 import 'dish_details_screen.dart';
 import 'login_screen.dart' as login_screen;
@@ -733,10 +733,8 @@ class _VisitorScreenState extends State<VisitorScreen> {
       return const Center(child: Text('Please log in to view orders'));
     }
 
-    final orderService = OrderService();
-
-    return FutureBuilder<List<Commande>>(
-      future: orderService.getOrdersByClientIdFromFirestore(user.id),
+    return StreamBuilder<List<Commande>>(
+      stream: OrderRepository().getOrdersStreamByClientId(user.id),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -814,7 +812,7 @@ class _VisitorScreenState extends State<VisitorScreen> {
 
         return RefreshIndicator(
           onRefresh: () async {
-            // Trigger a rebuild by calling setState
+            // StreamBuilder will handle the update, but we can call setState to be sure
             setState(() {});
           },
           child: ListView.builder(
@@ -988,10 +986,83 @@ class _VisitorScreenState extends State<VisitorScreen> {
                 ],
               ),
             ),
+
+            // Cancel Button for Clients (only if status is created)
+            if (order.statut == StatusCommande.created) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _handleCancelOrder(order.id),
+                  icon: const Icon(Icons.cancel_outlined, size: 18),
+                  label: const Text('Cancel Order'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _handleCancelOrder(int orderId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Order'),
+        content: Text('Are you sure you want to cancel Order #$orderId?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Yes, Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await OrderRepository().updateStatusById(
+          orderId,
+          StatusCommande.cancelled,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Order cancelled successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Refresh list
+          setState(() {});
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error cancelling order: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Color _getStatusColor(StatusCommande status) {

@@ -14,6 +14,8 @@ import 'profile_edit_screen.dart';
 import '../widgets/gerant_dashboard.dart';
 import 'coordinateur/coordinateur_orders_screen.dart';
 import 'livreur/livreur_orders_screen.dart';
+import 'client/client_orders_screen.dart';
+import 'visitor_screen.dart';
 
 /// Home screen showing different content based on user role
 class HomeScreen extends StatefulWidget {
@@ -785,6 +787,8 @@ class _HomeScreenState extends State<HomeScreen> {
             isAffected: user.isAffected,
             isAvailable: user.isAvailable,
             adresse: result['adresse'],
+            latitude: result['latitude'],
+            longitude: result['longitude'],
             imageUrl: result['imageUrl'],
           );
         } else {
@@ -885,14 +889,26 @@ class _HomeScreenState extends State<HomeScreen> {
             'Browse Menu',
             'View available dishes',
             Icons.restaurant_menu,
-            () {},
+            () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const VisitorScreen()),
+              );
+            },
           ),
           const SizedBox(height: 12),
           _buildMenuCard(
             'My Orders',
             'Check your orders',
             Icons.shopping_bag,
-            () {},
+            () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ClientOrdersScreen(),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 12),
           _buildMenuCard(

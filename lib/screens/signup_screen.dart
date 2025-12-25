@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/firebase_auth_service.dart';
 import '../utils/validators.dart';
+import 'map_picker_screen.dart';
+import 'package:latlong2/latlong.dart';
 
 /// Sign up screen for new user registration
 class SignupScreen extends StatefulWidget {
@@ -18,6 +20,9 @@ class _SignupScreenState extends State<SignupScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _addressController = TextEditingController();
+  double? _latitude;
+  double? _longitude;
   final _authService = FirebaseAuthService();
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -32,6 +37,7 @@ class _SignupScreenState extends State<SignupScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
@@ -52,6 +58,9 @@ class _SignupScreenState extends State<SignupScreen> {
         _lastNameController.text.trim(),
         _firstNameController.text.trim(),
         _phoneController.text.trim(),
+        adresse: _addressController.text.trim(),
+        latitude: _latitude,
+        longitude: _longitude,
       );
 
       if (success) {
@@ -182,6 +191,51 @@ class _SignupScreenState extends State<SignupScreen> {
                 keyboardType: TextInputType.phone,
                 validator: (value) => Validators.validatePhone(value),
                 textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 16),
+              // Address field with Map Picker
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _addressController,
+                      decoration: InputDecoration(
+                        labelText: 'Address',
+                        hintText: 'Enter your address',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: const Icon(Icons.location_on),
+                        enabled: !_isLoading,
+                      ),
+                      maxLines: 2,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.map, color: Colors.blue),
+                    onPressed: _isLoading
+                        ? null
+                        : () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const MapPickerScreen(),
+                              ),
+                            );
+
+                            if (result != null) {
+                              setState(() {
+                                _latitude =
+                                    (result['location'] as LatLng).latitude;
+                                _longitude =
+                                    (result['location'] as LatLng).longitude;
+                                _addressController.text = result['address'];
+                              });
+                            }
+                          },
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               // Password field

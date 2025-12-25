@@ -78,7 +78,12 @@ class _LivreurOrdersScreenState extends State<LivreurOrdersScreen> {
     if (active) {
       query = query.where(
         'statut',
-        whereIn: [StatusCommande.ready.name, StatusCommande.delivering.name],
+        whereIn: [
+          StatusCommande.accepted.name,
+          StatusCommande.preparing.name,
+          StatusCommande.ready.name,
+          StatusCommande.delivering.name,
+        ],
       );
     } else {
       query = query.where(

@@ -32,7 +32,7 @@ class _CoordinateurOrdersScreenState extends State<CoordinateurOrdersScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 8, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadCoordinateurPOS();
   }
 
@@ -138,13 +138,9 @@ class _CoordinateurOrdersScreenState extends State<CoordinateurOrdersScreen>
           unselectedLabelColor: Colors.white70,
           tabs: const [
             Tab(text: 'All'),
-            Tab(text: 'Created'),
-            Tab(text: 'Accepted'),
             Tab(text: 'Preparing'),
             Tab(text: 'Ready'),
-            Tab(text: 'Delivering'),
             Tab(text: 'Delivered'),
-            Tab(text: 'Cancelled'),
           ],
         ),
       ),
@@ -152,13 +148,9 @@ class _CoordinateurOrdersScreenState extends State<CoordinateurOrdersScreen>
         controller: _tabController,
         children: [
           _buildOrdersList(null),
-          _buildOrdersList(StatusCommande.created),
-          _buildOrdersList(StatusCommande.accepted),
           _buildOrdersList(StatusCommande.preparing),
           _buildOrdersList(StatusCommande.ready),
-          _buildOrdersList(StatusCommande.delivering),
           _buildOrdersList(StatusCommande.delivered),
-          _buildOrdersList(StatusCommande.cancelled),
         ],
       ),
     );

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -29,6 +31,14 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Load API Key from .env file
+        val envFile = project.file("../../.env")
+        val env = Properties()
+        if (envFile.exists()) {
+            envFile.inputStream().use { env.load(it) }
+        }
+
     }
 
     buildTypes {

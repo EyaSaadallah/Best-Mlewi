@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/utilisateur.dart';
+import '../models/client.dart';
 import '../models/enums.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../config/firebase_options.dart';
@@ -33,6 +34,9 @@ class FirebaseAuthService {
     String prenom,
     String telephone, {
     Role role = Role.client,
+    String? adresse,
+    double? latitude,
+    double? longitude,
   }) async {
     try {
       // Create Firebase auth user
@@ -43,17 +47,32 @@ class FirebaseAuthService {
 
       if (userCredential.user != null) {
         // Create Firestore user document
-        // Note: Password is NOT stored in Firestore - Firebase Auth manages it
-        final utilisateur = Utilisateur(
-          id: DateTime.now().millisecondsSinceEpoch,
-          nom: nom,
-          prenom: prenom,
-          email: email,
-          motDePasse: '', // Empty - password is managed by Firebase Auth
-          telephone: telephone,
-          dateInscription: DateTime.now(),
-          role: role,
-        );
+        final Utilisateur utilisateur;
+        if (role == Role.client) {
+          utilisateur = Client(
+            id: DateTime.now().millisecondsSinceEpoch,
+            nom: nom,
+            prenom: prenom,
+            email: email,
+            motDePasse: '', // Managed by Firebase Auth
+            telephone: telephone,
+            dateInscription: DateTime.now(),
+            adresse: adresse,
+            latitude: latitude,
+            longitude: longitude,
+          );
+        } else {
+          utilisateur = Utilisateur(
+            id: DateTime.now().millisecondsSinceEpoch,
+            nom: nom,
+            prenom: prenom,
+            email: email,
+            motDePasse: '',
+            telephone: telephone,
+            dateInscription: DateTime.now(),
+            role: role,
+          );
+        }
 
         await _userRepository.create(utilisateur);
         _currentUser = utilisateur;

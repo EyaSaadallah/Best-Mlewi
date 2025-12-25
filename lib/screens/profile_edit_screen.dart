@@ -5,6 +5,8 @@ import '../models/utilisateur.dart';
 import '../models/client.dart';
 import '../models/enums.dart';
 import '../services/imagekit_service.dart';
+import 'map_picker_screen.dart';
+import 'package:latlong2/latlong.dart';
 
 class ProfileEditScreen extends StatefulWidget {
   final Utilisateur user;
@@ -29,6 +31,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   bool _obscureNewPassword = true;
   File? _imageFile;
   String? _imageUrl;
+  double? _latitude;
+  double? _longitude;
   final _imagePicker = ImagePicker();
 
   @override
@@ -40,6 +44,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _adresseController = TextEditingController(
       text: widget.user is Client ? (widget.user as Client).adresse ?? '' : '',
     );
+    if (widget.user is Client) {
+      _latitude = (widget.user as Client).latitude;
+      _longitude = (widget.user as Client).longitude;
+    }
     _passwordController = TextEditingController();
     _oldPasswordController = TextEditingController();
     _imageUrl = widget.user.imageUrl;
@@ -224,20 +232,55 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               const SizedBox(height: 16),
               // Show address field only for clients
               if (widget.user.role == Role.client) ...[
-                TextFormField(
-                  controller: _adresseController,
-                  decoration: InputDecoration(
-                    labelText: 'Address',
-                    prefixIcon: Icon(Icons.location_on, color: themeColor),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _adresseController,
+                        decoration: InputDecoration(
+                          labelText: 'Address',
+                          prefixIcon: Icon(
+                            Icons.location_on,
+                            color: themeColor,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: themeColor, width: 2),
+                          ),
+                        ),
+                        maxLines: 2,
+                      ),
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: themeColor, width: 2),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(Icons.map, color: themeColor),
+                      onPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MapPickerScreen(
+                              initialLocation:
+                                  _latitude != null && _longitude != null
+                                  ? LatLng(_latitude!, _longitude!)
+                                  : null,
+                            ),
+                          ),
+                        );
+
+                        if (result != null) {
+                          setState(() {
+                            _latitude = (result['location'] as LatLng).latitude;
+                            _longitude =
+                                (result['location'] as LatLng).longitude;
+                            _adresseController.text = result['address'];
+                          });
+                        }
+                      },
                     ),
-                  ),
-                  maxLines: 2,
+                  ],
                 ),
                 const SizedBox(height: 16),
               ],
@@ -346,7 +389,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                                 newImageUrl = null;
                               }
 
-                              final result = {
+                              final Map<String, dynamic> result = {
                                 'nom': _nomController.text,
                                 'prenom': _prenomController.text,
                                 'telephone': _telephoneController.text,
@@ -366,6 +409,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                                     _adresseController.text.isNotEmpty
                                     ? _adresseController.text
                                     : null;
+                                result['latitude'] = _latitude;
+                                result['longitude'] = _longitude;
                               }
 
                               if (mounted) {

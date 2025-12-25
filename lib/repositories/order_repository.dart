@@ -58,6 +58,21 @@ class OrderRepository extends FirebaseRepository<Commande> {
     }
   }
 
+  /// Get orders stream by client ID
+  Stream<List<Commande>> getOrdersStreamByClientId(int clientId) {
+    return firestore
+        .collection(collectionName)
+        .where('clientId', isEqualTo: clientId)
+        .snapshots()
+        .map((snapshot) {
+          final orders = snapshot.docs
+              .map((doc) => fromFirestore(doc))
+              .toList();
+          orders.sort((a, b) => b.dateCreation.compareTo(a.dateCreation));
+          return orders;
+        });
+  }
+
   /// Get orders by status
   Future<List<Commande>> getByStatus(StatusCommande status) async {
     try {
@@ -96,6 +111,25 @@ class OrderRepository extends FirebaseRepository<Commande> {
       await firestore.collection(collectionName).doc(id).update({
         'statut': newStatus.name,
       });
+    } catch (e) {
+      throw Exception('Error updating order status: $e');
+    }
+  }
+
+  /// Update order status by integer id
+  Future<void> updateStatusById(int orderId, StatusCommande newStatus) async {
+    try {
+      final snapshot = await firestore
+          .collection(collectionName)
+          .where('id', isEqualTo: orderId)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        await snapshot.docs.first.reference.update({'statut': newStatus.name});
+      } else {
+        throw Exception('Order not found with id: $orderId');
+      }
     } catch (e) {
       throw Exception('Error updating order status: $e');
     }

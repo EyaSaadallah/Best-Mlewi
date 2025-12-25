@@ -1,4 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart'; // Added for fetching names directly
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/commande.dart';
@@ -8,6 +9,7 @@ import '../../models/point_de_vente.dart';
 import '../../repositories/order_repository.dart';
 import '../../repositories/utilisateur_repository.dart';
 import '../../repositories/point_de_vente_repository.dart';
+import '../../services/notification_service.dart';
 
 /// Detailed view of a single order with status update options
 class OrderDetailsScreen extends StatefulWidget {
@@ -43,14 +45,28 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   String? _assignedLivreurName;
   String? _assignedPOSName;
   String? _clientName;
+  Role? _currentUserRole;
 
   @override
   void initState() {
     super.initState();
     _currentStatus = widget.order.statut;
+    _loadCurrentUserRole();
     _loadAssignedNames();
     if (_currentStatus == StatusCommande.created) {
       _loadAssignmentData();
+    }
+  }
+
+  Future<void> _loadCurrentUserRole() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.email != null) {
+      final dbUser = await _utilisateurRepository.getByEmail(user.email!);
+      if (mounted && dbUser != null) {
+        setState(() {
+          _currentUserRole = dbUser.role;
+        });
+      }
     }
   }
 
@@ -360,22 +376,28 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
             const SizedBox(height: 16),
 
-            // Assignment & Acceptance Workflow
-            if (_currentStatus == StatusCommande.created)
+            // Assignment & Acceptance Workflow (Gerant Only)
+            if (_currentStatus == StatusCommande.created &&
+                _currentUserRole == Role.gerant)
               _buildAssignAndAcceptSection(),
 
-            // Preparation Workflow
-            if (_currentStatus == StatusCommande.accepted)
+            // Preparation Workflow (Coordinateur Only)
+            if (_currentStatus == StatusCommande.accepted &&
+                _currentUserRole == Role.coordinateur)
               _buildPreparationAction(),
 
-            // Ready Workflow
-            if (_currentStatus == StatusCommande.preparing) _buildReadyAction(),
+            // Ready Workflow (Coordinateur Only)
+            if (_currentStatus == StatusCommande.preparing &&
+                _currentUserRole == Role.coordinateur)
+              _buildReadyAction(),
 
-            // Delivery Workflow
-            if (_currentStatus == StatusCommande.ready)
+            // Delivery Workflow (Livreur Only)
+            if (_currentStatus == StatusCommande.ready &&
+                _currentUserRole == Role.livreur)
               _buildStartDeliveryAction(),
 
-            if (_currentStatus == StatusCommande.delivering)
+            if (_currentStatus == StatusCommande.delivering &&
+                _currentUserRole == Role.livreur)
               _buildCompleteDeliveryAction(),
 
             const SizedBox(height: 16),
@@ -579,6 +601,26 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       );
 
       await _orderRepository.updateOrder(updatedOrder);
+
+      // Send Notifications
+      final notificationService = NotificationService();
+
+      // Notify Livreur
+      await notificationService.createNotification(
+        userId: _selectedLivreur!.id,
+        message: 'New order #${widget.order.id} assigned to you.',
+        type: NotificationType.info,
+      );
+
+      // Notify Coordinateur (if assigned to POS and POS has a coordinator)
+      if (_selectedPOS!.coordinateurId != null) {
+        await notificationService.createNotification(
+          userId: _selectedPOS!.coordinateurId!,
+          message:
+              'New order #${widget.order.id} assigned to your Point of Sale (${_selectedPOS!.nom}).',
+          type: NotificationType.info,
+        );
+      }
 
       // Update local state is optional since we reload or navigate back usually,
       // but good for UX if staying on page
