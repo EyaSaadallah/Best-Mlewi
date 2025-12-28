@@ -60,21 +60,6 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     super.dispose();
   }
 
-  Color _getRoleColor(Role role) {
-    switch (role) {
-      case Role.gerant:
-        return Colors.deepPurple;
-      case Role.coordinateur:
-        return Colors.orange;
-      case Role.livreur:
-        return Colors.green;
-      case Role.collaborateur:
-        return Colors.blue;
-      default:
-        return Colors.black;
-    }
-  }
-
   Future<void> _pickImage() async {
     try {
       final pickedFile = await _imagePicker.pickImage(
@@ -100,358 +85,449 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = _getRoleColor(widget.user.role);
+    const themeColor = Colors.black;
 
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Edit Profile'),
-        backgroundColor: themeColor,
-        foregroundColor: Colors.white,
+        title: const Text(
+          'Edit Profile',
+          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.5),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              Stack(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.black))
+          : SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: themeColor,
-                    backgroundImage: _imageFile != null
-                        ? FileImage(_imageFile!)
-                        : (_imageUrl != null ? NetworkImage(_imageUrl!) : null)
-                              as ImageProvider?,
-                    child: (_imageFile == null && _imageUrl == null)
-                        ? Text(
-                            widget.user.prenom.isNotEmpty
-                                ? widget.user.prenom[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              fontSize: 40,
-                              color: Colors.white,
+                  // Header section with Avatar
+                  Container(
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(32),
+                        bottomRight: Radius.circular(32),
+                      ),
+                    ),
+                    padding: const EdgeInsets.only(bottom: 40, top: 20),
+                    child: Column(
+                      children: [
+                        Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: CircleAvatar(
+                                radius: 55,
+                                backgroundColor: Colors.grey[900],
+                                backgroundImage: _imageFile != null
+                                    ? FileImage(_imageFile!)
+                                    : (_imageUrl != null
+                                              ? NetworkImage(_imageUrl!)
+                                              : null)
+                                          as ImageProvider?,
+                                child: (_imageFile == null && _imageUrl == null)
+                                    ? Text(
+                                        widget.user.prenom.isNotEmpty
+                                            ? widget.user.prenom[0]
+                                                  .toUpperCase()
+                                            : '?',
+                                        style: const TextStyle(
+                                          fontSize: 40,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : null,
+                              ),
                             ),
-                          )
-                        : null,
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: CircleAvatar(
-                      backgroundColor: Colors.white,
-                      radius: 18,
-                      child: IconButton(
-                        icon: const Icon(Icons.camera_alt, size: 18),
-                        color: themeColor,
-                        onPressed: _pickImage,
-                      ),
-                    ),
-                  ),
-                  if (_imageFile != null || _imageUrl != null)
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: CircleAvatar(
-                        backgroundColor: Colors.black,
-                        radius: 15,
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(
-                            Icons.close,
-                            size: 18,
-                            color: Colors.white,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _imageFile = null;
-                              _imageUrl = null;
-                            });
-                          },
+                            GestureDetector(
+                              onTap: _pickImage,
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 10,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt_rounded,
+                                  size: 20,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
+                            if (_imageFile != null || _imageUrl != null)
+                              Positioned(
+                                top: 0,
+                                right: 0,
+                                child: GestureDetector(
+                                  onTap: () => setState(() {
+                                    _imageFile = null;
+                                    _imageUrl = null;
+                                  }),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Upload Profile Photo',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionTitle('Basic Information'),
+                          _buildInputGroup([
+                            _buildTextField(
+                              controller: _prenomController,
+                              label: 'First Name',
+                              icon: Icons.person_outline_rounded,
+                            ),
+                            _buildTextField(
+                              controller: _nomController,
+                              label: 'Last Name',
+                              icon: Icons.person_outline_rounded,
+                            ),
+                            _buildTextField(
+                              controller: _telephoneController,
+                              label: 'Phone Number',
+                              icon: Icons.phone_outlined,
+                              keyboardType: TextInputType.phone,
+                            ),
+                          ]),
+                          const SizedBox(height: 32),
+
+                          if (widget.user.role != Role.gerant) ...[
+                            _buildSectionTitle('Location'),
+                            _buildInputGroup([_buildAddressField(themeColor)]),
+                            const SizedBox(height: 32),
+                          ],
+
+                          _buildSectionTitle('Security'),
+                          _buildInputGroup([
+                            _buildTextField(
+                              controller: _oldPasswordController,
+                              label: 'Old Password',
+                              icon: Icons.lock_outline_rounded,
+                              isPassword: true,
+                              obscureText: _obscureOldPassword,
+                              onToggleVisibility: () => setState(
+                                () =>
+                                    _obscureOldPassword = !_obscureOldPassword,
+                              ),
+                              helperText: 'Required to change password',
+                            ),
+                            _buildTextField(
+                              controller: _passwordController,
+                              label: 'New Password',
+                              icon: Icons.lock_reset_rounded,
+                              isPassword: true,
+                              obscureText: _obscureNewPassword,
+                              onToggleVisibility: () => setState(
+                                () =>
+                                    _obscureNewPassword = !_obscureNewPassword,
+                              ),
+                              helperText: 'Optional',
+                            ),
+                          ]),
+                          const SizedBox(height: 48),
+
+                          // Save Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _handleSave,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 18,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Text(
+                                'Save Profile Changes',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 40),
+                        ],
                       ),
                     ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 24),
-              TextFormField(
-                controller: _prenomController,
-                decoration: InputDecoration(
-                  labelText: 'First Name',
-                  prefixIcon: Icon(Icons.person, color: themeColor),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: themeColor, width: 2),
-                  ),
-                ),
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _nomController,
-                decoration: InputDecoration(
-                  labelText: 'Last Name',
-                  prefixIcon: Icon(Icons.person_outline, color: themeColor),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: themeColor, width: 2),
-                  ),
-                ),
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _telephoneController,
-                decoration: InputDecoration(
-                  labelText: 'Phone Number',
-                  prefixIcon: Icon(Icons.phone, color: themeColor),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: themeColor, width: 2),
-                  ),
-                ),
-                keyboardType: TextInputType.phone,
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              // Show address field for clients and staff
-              if (widget.user.role == Role.client ||
-                  widget.user.role == Role.livreur ||
-                  widget.user.role == Role.coordinateur ||
-                  widget.user.role == Role.collaborateur) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _adresseController,
-                        decoration: InputDecoration(
-                          labelText: 'Address',
-                          prefixIcon: Icon(
-                            Icons.location_on,
-                            color: themeColor,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: themeColor, width: 2),
-                          ),
-                        ),
-                        maxLines: 2,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: Icon(Icons.map, color: themeColor),
-                      onPressed: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => MapPickerScreen(
-                              initialLocation:
-                                  _latitude != null && _longitude != null
-                                  ? LatLng(_latitude!, _longitude!)
-                                  : null,
-                            ),
-                          ),
-                        );
+            ),
+    );
+  }
 
-                        if (result != null) {
-                          setState(() {
-                            _latitude = (result['location'] as LatLng).latitude;
-                            _longitude =
-                                (result['location'] as LatLng).longitude;
-                            _adresseController.text = result['address'];
-                          });
-                        }
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-              ],
-              TextFormField(
-                controller: _oldPasswordController,
-                decoration: InputDecoration(
-                  labelText: 'Old Password',
-                  helperText: 'Required only if changing password',
-                  prefixIcon: Icon(Icons.lock_outline, color: themeColor),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: themeColor, width: 2),
-                  ),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureOldPassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      color: themeColor,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscureOldPassword = !_obscureOldPassword;
-                      });
-                    },
-                  ),
-                ),
-                obscureText: _obscureOldPassword,
-                validator: (value) {
-                  if (_passwordController.text.isNotEmpty &&
-                      (value == null || value.isEmpty)) {
-                    return 'Old password is required to set a new one';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: 'New Password (Optional)',
-                  helperText: 'Leave empty to keep current password',
-                  prefixIcon: Icon(Icons.lock, color: themeColor),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: themeColor, width: 2),
-                  ),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureNewPassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      color: themeColor,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscureNewPassword = !_obscureNewPassword;
-                      });
-                    },
-                  ),
-                ),
-                obscureText: _obscureNewPassword,
-              ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isLoading
-                      ? null
-                      : () async {
-                          if (_formKey.currentState?.validate() ?? false) {
-                            setState(() => _isLoading = true);
-                            try {
-                              String? newImageUrl = _imageUrl;
-                              final imageService = ImageKitService();
-
-                              // Case 1: New image selected
-                              if (_imageFile != null) {
-                                // Delete old image if exists
-                                if (widget.user.imageUrl != null) {
-                                  await imageService.deleteImage(
-                                    widget.user.imageUrl!,
-                                  );
-                                }
-
-                                final fileName =
-                                    'user_${widget.user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                                newImageUrl = await imageService.uploadImage(
-                                  _imageFile!,
-                                  fileName,
-                                );
-                              }
-                              // Case 2: Image removed (and no new image selected)
-                              else if (_imageUrl == null &&
-                                  widget.user.imageUrl != null) {
-                                await imageService.deleteImage(
-                                  widget.user.imageUrl!,
-                                );
-                                newImageUrl = null;
-                              }
-
-                              final Map<String, dynamic> result = {
-                                'nom': _nomController.text,
-                                'prenom': _prenomController.text,
-                                'telephone': _telephoneController.text,
-                                'password': _passwordController.text.isNotEmpty
-                                    ? _passwordController.text
-                                    : null,
-                                'oldPassword':
-                                    _oldPasswordController.text.isNotEmpty
-                                    ? _oldPasswordController.text
-                                    : null,
-                                'imageUrl': newImageUrl,
-                              };
-
-                              // Add address if user is client or staff
-                              if (widget.user.role == Role.client ||
-                                  widget.user.role == Role.livreur ||
-                                  widget.user.role == Role.coordinateur ||
-                                  widget.user.role == Role.collaborateur) {
-                                result['adresse'] =
-                                    _adresseController.text.isNotEmpty
-                                    ? _adresseController.text
-                                    : null;
-                                result['latitude'] = _latitude;
-                                result['longitude'] = _longitude;
-                              }
-
-                              if (mounted) {
-                                Navigator.pop(context, result);
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error saving profile: $e'),
-                                  ),
-                                );
-                              }
-                            } finally {
-                              if (mounted) {
-                                setState(() => _isLoading = false);
-                              }
-                            }
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: themeColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'Save Changes',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                ),
-              ),
-            ],
-          ),
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.2,
         ),
       ),
     );
+  }
+
+  Widget _buildInputGroup(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: children.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final widget = entry.value;
+          return Column(
+            children: [
+              widget,
+              if (idx < children.length - 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Divider(color: Colors.grey[50], height: 1),
+                ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool isPassword = false,
+    bool? obscureText,
+    VoidCallback? onToggleVisibility,
+    TextInputType? keyboardType,
+    String? helperText,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: TextFormField(
+        controller: controller,
+        obscureText: obscureText ?? false,
+        keyboardType: keyboardType,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
+          helperText: helperText,
+          helperStyle: const TextStyle(fontSize: 10),
+          prefixIcon: Icon(icon, color: Colors.black87, size: 20),
+          suffixIcon: isPassword
+              ? IconButton(
+                  icon: Icon(
+                    (obscureText ?? false)
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    color: Colors.grey,
+                    size: 20,
+                  ),
+                  onPressed: onToggleVisibility,
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+        ),
+        validator: (value) {
+          if (!isPassword && (value == null || value.isEmpty)) {
+            return 'Field required';
+          }
+          if (controller == _oldPasswordController &&
+              _passwordController.text.isNotEmpty &&
+              (value == null || value.isEmpty)) {
+            return 'Required for password change';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  Widget _buildAddressField(Color themeColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextFormField(
+              controller: _adresseController,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              decoration: InputDecoration(
+                labelText: 'Address',
+                labelStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
+                prefixIcon: const Icon(
+                  Icons.location_on_outlined,
+                  color: Colors.black87,
+                  size: 20,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+              ),
+              maxLines: 1,
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(
+                Icons.map_rounded,
+                color: Colors.black,
+                size: 20,
+              ),
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MapPickerScreen(
+                      initialLocation: _latitude != null && _longitude != null
+                          ? LatLng(_latitude!, _longitude!)
+                          : null,
+                    ),
+                  ),
+                );
+
+                if (result != null) {
+                  setState(() {
+                    _latitude = (result['location'] as LatLng).latitude;
+                    _longitude = (result['location'] as LatLng).longitude;
+                    _adresseController.text = result['address'];
+                  });
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleSave() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      setState(() => _isLoading = true);
+      try {
+        String? newImageUrl = _imageUrl;
+        final imageService = ImageKitService();
+
+        if (_imageFile != null) {
+          if (widget.user.imageUrl != null) {
+            await imageService.deleteImage(widget.user.imageUrl!);
+          }
+          final fileName =
+              'user_${widget.user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          newImageUrl = await imageService.uploadImage(_imageFile!, fileName);
+        } else if (_imageUrl == null && widget.user.imageUrl != null) {
+          await imageService.deleteImage(widget.user.imageUrl!);
+          newImageUrl = null;
+        }
+
+        final Map<String, dynamic> result = {
+          'nom': _nomController.text,
+          'prenom': _prenomController.text,
+          'telephone': _telephoneController.text,
+          'password': _passwordController.text.isNotEmpty
+              ? _passwordController.text
+              : null,
+          'oldPassword': _oldPasswordController.text.isNotEmpty
+              ? _oldPasswordController.text
+              : null,
+          'imageUrl': newImageUrl,
+        };
+
+        if (widget.user.role != Role.gerant) {
+          result['adresse'] = _adresseController.text.isNotEmpty
+              ? _adresseController.text
+              : null;
+          result['latitude'] = _latitude;
+          result['longitude'] = _longitude;
+        }
+
+        if (mounted) Navigator.pop(context, result);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error saving profile: $e')));
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    }
   }
 }

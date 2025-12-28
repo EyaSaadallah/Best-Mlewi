@@ -32,7 +32,7 @@ class _CoordinateurOrdersScreenState extends State<CoordinateurOrdersScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _loadCoordinateurPOS();
   }
 
@@ -85,21 +85,41 @@ class _CoordinateurOrdersScreenState extends State<CoordinateurOrdersScreen>
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator(color: Colors.black)),
+      );
     }
 
     if (_error != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Coordinateur Orders')),
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          title: const Text(
+            'Orders Management',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+        ),
         body: Center(
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(32.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 48,
+                  color: Colors.redAccent,
+                ),
                 const SizedBox(height: 16),
-                Text(_error!, textAlign: TextAlign.center),
+                Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ],
             ),
           ),
@@ -108,49 +128,128 @@ class _CoordinateurOrdersScreenState extends State<CoordinateurOrdersScreen>
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Orders Management',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              'Orders Pipeline',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
             ),
             if (_posName != null)
               Text(
-                _posName!,
+                _posName!.toUpperCase(),
                 style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.normal,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black54,
+                  letterSpacing: 1.0,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
           ],
         ),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
         elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: 'All'),
-            Tab(text: 'Preparing'),
-            Tab(text: 'Ready'),
-            Tab(text: 'Delivered'),
-          ],
+        centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('commandes')
+                .where('posId', isEqualTo: _posId)
+                .snapshots(),
+            builder: (context, snapshot) {
+              final docs = snapshot.data?.docs ?? [];
+              final Map<String, int> counts = {};
+              for (var doc in docs) {
+                final data = doc.data() as Map<String, dynamic>?;
+                final status = data?['statut'] as String?;
+                if (status != null) {
+                  counts[status] = (counts[status] ?? 0) + 1;
+                }
+              }
+
+              return TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                indicatorSize: TabBarIndicatorSize.label,
+                indicatorColor: Colors.black,
+                labelColor: Colors.black,
+                unselectedLabelColor: Colors.grey[400],
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+                tabs: [
+                  _buildTab(
+                    'Accepted',
+                    counts[StatusCommande.accepted.name] ?? 0,
+                  ),
+                  _buildTab(
+                    'Preparing',
+                    counts[StatusCommande.preparing.name] ?? 0,
+                  ),
+                  _buildTab('Ready', counts[StatusCommande.ready.name] ?? 0),
+                  _buildTab(
+                    'Delivering',
+                    counts[StatusCommande.delivering.name] ?? 0,
+                  ),
+                  _buildTab(
+                    'Delivered',
+                    counts[StatusCommande.delivered.name] ?? 0,
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildOrdersList(null),
+          _buildOrdersList(StatusCommande.accepted),
           _buildOrdersList(StatusCommande.preparing),
           _buildOrdersList(StatusCommande.ready),
+          _buildOrdersList(StatusCommande.delivering),
           _buildOrdersList(StatusCommande.delivered),
+        ],
+      ),
+    );
+  }
+
+  Tab _buildTab(String label, int count) {
+    return Tab(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              count.toString(),
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(label),
         ],
       ),
     );
@@ -161,7 +260,7 @@ class _CoordinateurOrdersScreenState extends State<CoordinateurOrdersScreen>
 
     Query query = FirebaseFirestore.instance
         .collection('commandes')
-        .where('posId', isEqualTo: _posId); // FILTER BY POS ID
+        .where('posId', isEqualTo: _posId);
 
     if (status != null) {
       query = query.where('statut', isEqualTo: status.name);
@@ -171,25 +270,32 @@ class _CoordinateurOrdersScreenState extends State<CoordinateurOrdersScreen>
       stream: query.snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.black),
+          );
         }
 
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.inbox_outlined, size: 80, color: Colors.grey[400]),
+                Icon(Icons.inbox_outlined, size: 80, color: Colors.grey[200]),
                 const SizedBox(height: 16),
                 Text(
                   status == null
                       ? 'No orders for this POS'
                       : 'No ${_getStatusLabel(status)} orders',
-                  style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[400],
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -197,7 +303,6 @@ class _CoordinateurOrdersScreenState extends State<CoordinateurOrdersScreen>
         }
 
         // Sort in memory (newest first)
-        final docs = snapshot.data!.docs;
         final sortedDocs = docs.toList();
         sortedDocs.sort((a, b) {
           try {
@@ -212,11 +317,11 @@ class _CoordinateurOrdersScreenState extends State<CoordinateurOrdersScreen>
         });
 
         return RefreshIndicator(
-          onRefresh: () async {
-            setState(() {});
-          },
+          onRefresh: () async => setState(() {}),
+          color: Colors.black,
           child: ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            physics: const BouncingScrollPhysics(),
             itemCount: sortedDocs.length,
             itemBuilder: (context, index) {
               final doc = sortedDocs[index];
@@ -230,88 +335,132 @@ class _CoordinateurOrdersScreenState extends State<CoordinateurOrdersScreen>
   }
 
   Widget _buildOrderCard(Commande order, String docId) {
-    final statusColor = _getStatusColor(order.statut);
+    final color = _getStatusColor(order.statut);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  OrderDetailsScreen(order: order, docId: docId),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey[100]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      OrderDetailsScreen(order: order, docId: docId),
+                ),
+              ).then((_) => setState(() {}));
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Order #${order.id}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: statusColor),
-                    ),
-                    child: Text(
-                      _getStatusLabel(order.statut),
-                      style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.bold,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'ORDER',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            DateFormat(
+                              'MMM dd, HH:mm',
+                            ).format(order.dateCreation),
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: color.withOpacity(0.2)),
+                        ),
+                        child: Text(
+                          _getStatusLabel(order.statut).toUpperCase(),
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 10,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Divider(height: 1),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.shopping_basket_outlined,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '${order.lignes.length} Items Summary',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '${order.totalWithTax.toStringAsFixed(2)} TND',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Text(
-                    DateFormat(
-                      'MMM dd, yyyy - HH:mm',
-                    ).format(order.dateCreation),
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${order.lignes.length} items',
-                    style: TextStyle(color: Colors.grey[700]),
-                  ),
-                  Text(
-                    '${order.totalWithTax.toStringAsFixed(2)} TND',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -321,7 +470,7 @@ class _CoordinateurOrdersScreenState extends State<CoordinateurOrdersScreen>
   Color _getStatusColor(StatusCommande status) {
     switch (status) {
       case StatusCommande.created:
-        return Colors.blue;
+        return Colors.blueAccent;
       case StatusCommande.accepted:
         return Colors.teal;
       case StatusCommande.preparing:
@@ -333,12 +482,11 @@ class _CoordinateurOrdersScreenState extends State<CoordinateurOrdersScreen>
       case StatusCommande.delivered:
         return Colors.green;
       case StatusCommande.cancelled:
-        return Colors.red;
+        return Colors.redAccent;
     }
   }
 
   String _getStatusLabel(StatusCommande status) {
-    // Basic capitalization or just .name upper first
     return status.name[0].toUpperCase() + status.name.substring(1);
   }
 }

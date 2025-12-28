@@ -3,8 +3,6 @@ import '../services/firebase_auth_service.dart';
 import '../services/email_service.dart';
 import '../utils/validators.dart';
 import '../models/enums.dart';
-import 'map_picker_screen.dart';
-import 'package:latlong2/latlong.dart';
 
 /// Sign up screen for adding a new collaborator
 class CollaborateurSignupScreen extends StatefulWidget {
@@ -23,9 +21,6 @@ class _CollaborateurSignupScreenState extends State<CollaborateurSignupScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _addressController = TextEditingController();
-  double? _latitude;
-  double? _longitude;
   final _authService = FirebaseAuthService();
   final _emailService = EmailService();
   bool _isLoading = false;
@@ -42,7 +37,6 @@ class _CollaborateurSignupScreenState extends State<CollaborateurSignupScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _addressController.dispose();
     super.dispose();
   }
 
@@ -64,9 +58,6 @@ class _CollaborateurSignupScreenState extends State<CollaborateurSignupScreen> {
         _firstNameController.text.trim(),
         _phoneController.text.trim(),
         role: _selectedRole,
-        adresse: _addressController.text.trim(),
-        latitude: _latitude,
-        longitude: _longitude,
       );
 
       if (success) {
@@ -217,298 +208,311 @@ class _CollaborateurSignupScreenState extends State<CollaborateurSignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Add Collaborator'),
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+        title: const Text(
+          'Staff Onboarding',
+          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.5),
         ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 24),
-              // Title
-              Text(
-                'New Collaborator',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Create a new account for a staff member',
-                textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 32),
-              // First Name field
-              TextFormField(
-                controller: _firstNameController,
-                decoration: InputDecoration(
-                  labelText: 'First Name',
-                  hintText: 'Enter first name',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  prefixIcon: const Icon(Icons.person),
-                  enabled: !_isLoading,
-                ),
-                validator: (value) => Validators.validateName(value),
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 16),
-              // Last Name field
-              TextFormField(
-                controller: _lastNameController,
-                decoration: InputDecoration(
-                  labelText: 'Last Name',
-                  hintText: 'Enter last name',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  prefixIcon: const Icon(Icons.person),
-                  enabled: !_isLoading,
-                ),
-                validator: (value) => Validators.validateName(value),
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 16),
-              // Email field
-              TextFormField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  hintText: 'Enter email address',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  prefixIcon: const Icon(Icons.email),
-                  enabled: !_isLoading,
-                ),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) => Validators.validateEmail(value),
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 16),
-              // Phone field
-              TextFormField(
-                controller: _phoneController,
-                decoration: InputDecoration(
-                  labelText: 'Phone Number',
-                  hintText: 'Enter phone number',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  prefixIcon: const Icon(Icons.phone),
-                  enabled: !_isLoading,
-                ),
-                keyboardType: TextInputType.phone,
-                validator: (value) => Validators.validatePhone(value),
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 16),
-              // Password field
-              TextFormField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  hintText: 'Enter a strong password',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  prefixIcon: const Icon(Icons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.black))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              physics: const BouncingScrollPhysics(),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionTitle(
+                      'Staff Profile',
+                      Icons.person_add_outlined,
                     ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                  ),
-                  enabled: !_isLoading,
-                ),
-                obscureText: _obscurePassword,
-                validator: (value) => Validators.validatePassword(value),
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 8),
-              // Password requirements hint
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue[200]!),
-                ),
-                child: Text(
-                  'Password must contain:\n• At least 8 characters\n• Uppercase letter (A-Z)\n• Lowercase letter (a-z)\n• Number (0-9)\n• Special character (@\$!%*?&)',
-                  style: TextStyle(fontSize: 12, color: Colors.blue[900]),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Confirm Password field
-              TextFormField(
-                controller: _confirmPasswordController,
-                decoration: InputDecoration(
-                  labelText: 'Confirm Password',
-                  hintText: 'Re-enter password',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  prefixIcon: const Icon(Icons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirmPassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscureConfirmPassword = !_obscureConfirmPassword;
-                      });
-                    },
-                  ),
-                  enabled: !_isLoading,
-                ),
-                obscureText: _obscureConfirmPassword,
-                validator: (value) => Validators.validatePasswordConfirmation(
-                  value,
-                  _passwordController.text,
-                ),
-                textInputAction: TextInputAction.done,
-              ),
-              const SizedBox(height: 16),
-              // Address field with Map Picker
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _addressController,
-                      decoration: InputDecoration(
-                        labelText: 'Address',
-                        hintText: 'Enter address',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        prefixIcon: const Icon(Icons.location_on),
-                        enabled: !_isLoading,
+                    _buildInputGroup([
+                      _buildTextField(
+                        controller: _firstNameController,
+                        label: 'First Name',
+                        icon: Icons.person_outline_rounded,
+                        validator: (value) => Validators.validateName(value),
                       ),
-                      maxLines: 2,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.map, color: Colors.blue),
-                    onPressed: _isLoading
-                        ? null
-                        : () async {
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => MapPickerScreen(
-                                  initialLocation:
-                                      (_latitude != null && _longitude != null)
-                                      ? LatLng(_latitude!, _longitude!)
-                                      : null,
-                                ),
-                              ),
-                            );
+                      _buildTextField(
+                        controller: _lastNameController,
+                        label: 'Last Name',
+                        icon: Icons.person_outline_rounded,
+                        validator: (value) => Validators.validateName(value),
+                      ),
+                      _buildTextField(
+                        controller: _emailController,
+                        label: 'Corporate Email',
+                        icon: Icons.alternate_email_rounded,
+                        isEmail: true,
+                        validator: (value) => Validators.validateEmail(value),
+                      ),
+                      _buildTextField(
+                        controller: _phoneController,
+                        label: 'Phone Number',
+                        icon: Icons.phone_iphone_rounded,
+                        isPhone: true,
+                        validator: (value) => Validators.validatePhone(value),
+                      ),
+                    ]),
+                    const SizedBox(height: 32),
 
-                            if (result != null) {
-                              setState(() {
-                                _latitude =
-                                    (result['location'] as LatLng).latitude;
-                                _longitude =
-                                    (result['location'] as LatLng).longitude;
-                                _addressController.text = result['address'];
-                              });
-                            }
-                          },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Role selection
-              DropdownButtonFormField<Role>(
-                value: _selectedRole,
-                decoration: InputDecoration(
-                  labelText: 'Role',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  prefixIcon: const Icon(Icons.badge),
-                  enabled: !_isLoading,
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: Role.collaborateur,
-                    child: Text('Collaborateur'),
-                  ),
-                  DropdownMenuItem(value: Role.livreur, child: Text('Livreur')),
-                  DropdownMenuItem(
-                    value: Role.coordinateur,
-                    child: Text('Coordinateur'),
-                  ),
-                ],
-                onChanged: (Role? value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedRole = value;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 24),
-              // Error message
-              if (_errorMessage != null)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red[100],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red[300]!),
-                  ),
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(color: Colors.red[900]),
-                  ),
-                ),
-              if (_errorMessage != null) const SizedBox(height: 16),
-              // Sign up button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _handleSignup,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+                    _buildSectionTitle(
+                      'Security & Access',
+                      Icons.lock_outline_rounded,
+                    ),
+                    _buildInputGroup([
+                      _buildTextField(
+                        controller: _passwordController,
+                        label: 'Temporary Password',
+                        icon: Icons.password_rounded,
+                        isPassword: true,
+                        obscureText: _obscurePassword,
+                        onTogglePassword: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
                         ),
-                      )
-                    : const Text('Create Account'),
+                        validator: (value) =>
+                            Validators.validatePassword(value),
+                      ),
+                      _buildTextField(
+                        controller: _confirmPasswordController,
+                        label: 'Confirm Password',
+                        icon: Icons.verified_user_outlined,
+                        isPassword: true,
+                        obscureText: _obscureConfirmPassword,
+                        onTogglePassword: () => setState(
+                          () => _obscureConfirmPassword =
+                              !_obscureConfirmPassword,
+                        ),
+                        validator: (value) =>
+                            Validators.validatePasswordConfirmation(
+                              value,
+                              _passwordController.text,
+                            ),
+                      ),
+                      _buildRoleSelection(),
+                    ]),
+
+                    if (_errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: _buildErrorBanner(_errorMessage!),
+                      ),
+
+                    const SizedBox(height: 48),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _handleSignup,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Generate Staff Account',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
+            ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.black),
+          const SizedBox(width: 8),
+          Text(
+            title.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.0,
+              color: Colors.black54,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputGroup(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: children.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final widget = entry.value;
+          return Column(
+            children: [
+              widget,
+              if (idx < children.length - 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Divider(color: Colors.grey[50], height: 1),
+                ),
             ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool isEmail = false,
+    bool isPhone = false,
+    bool isPassword = false,
+    bool obscureText = false,
+    VoidCallback? onTogglePassword,
+    String? Function(String?)? validator,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: TextFormField(
+        controller: controller,
+        obscureText: obscureText,
+        keyboardType: isEmail
+            ? TextInputType.emailAddress
+            : (isPhone ? TextInputType.phone : TextInputType.text),
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
+          prefixIcon: Icon(icon, color: Colors.black87, size: 20),
+          suffixIcon: isPassword
+              ? IconButton(
+                  icon: Icon(
+                    obscureText
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                    size: 18,
+                    color: Colors.grey,
+                  ),
+                  onPressed: onTogglePassword,
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
           ),
         ),
+        validator: validator,
+      ),
+    );
+  }
+
+  Widget _buildRoleSelection() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButtonFormField<Role>(
+          value: _selectedRole,
+          decoration: InputDecoration(
+            labelText: 'Assigned Role',
+            labelStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
+            prefixIcon: const Icon(
+              Icons.badge_outlined,
+              color: Colors.black87,
+              size: 20,
+            ),
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+          ),
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Colors.black,
+          ),
+          items: const [
+            DropdownMenuItem(
+              value: Role.collaborateur,
+              child: Text(
+                'Collaborateur',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            DropdownMenuItem(
+              value: Role.livreur,
+              child: Text(
+                'Livreur',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            DropdownMenuItem(
+              value: Role.coordinateur,
+              child: Text(
+                'Coordinateur',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+          onChanged: (Role? value) {
+            if (value != null) setState(() => _selectedRole = value);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorBanner(String message) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red[100]!),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Colors.red, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: Colors.red[900],
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

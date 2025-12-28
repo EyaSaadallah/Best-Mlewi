@@ -149,162 +149,322 @@ class _PlatEditScreenState extends State<PlatEditScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(widget.plat == null ? 'New Dish' : 'Edit Dish'),
+        title: Text(
+          widget.plat == null ? 'New Dish' : 'Edit Dish',
+          style: const TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _nomController,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _prixController,
-                decoration: const InputDecoration(
-                  labelText: 'Price',
-                  border: OutlineInputBorder(),
-                  prefixText: '\$',
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a price';
-                  }
-                  if (double.tryParse(value) == null) {
-                    return 'Please enter a valid number';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _categorieController,
-                decoration: const InputDecoration(
-                  labelText: 'Category Tag',
-                  border: OutlineInputBorder(),
-                  hintText: 'e.g. Spicy, Vegetarian',
-                ),
-              ),
-              const SizedBox(height: 16),
-              SwitchListTile(
-                title: const Text('Available'),
-                value: _disponible,
-                onChanged: (value) => setState(() => _disponible = value),
-              ),
-              const SizedBox(height: 24),
-              // Image upload section
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(8),
-                ),
+      body: _isUploadingImage
+          ? const Center(child: CircularProgressIndicator(color: Colors.black))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              physics: const BouncingScrollPhysics(),
+              child: Form(
+                key: _formKey,
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (_selectedImage != null)
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            _selectedImage!,
-                            height: 200,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      )
-                    else if (_imageUrlController.text.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            _imageUrlController.text,
-                            height: 200,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                height: 200,
-                                color: Colors.grey[200],
-                                child: const Center(
-                                  child: Icon(Icons.image_not_supported),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
+                    _buildSectionTitle(
+                      'Dish Presentation',
+                      Icons.photo_library_outlined,
+                    ),
+                    _buildImageSection(),
+                    const SizedBox(height: 32),
+
+                    _buildSectionTitle(
+                      'Basic Details',
+                      Icons.info_outline_rounded,
+                    ),
+                    _buildInputGroup([
+                      _buildTextField(
+                        controller: _nomController,
+                        label: 'Dish Name',
+                        icon: Icons.restaurant_rounded,
+                        validator: (value) =>
+                            value?.isEmpty ?? true ? 'Required' : null,
                       ),
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: ElevatedButton.icon(
-                        onPressed: _isUploadingImage ? null : _pickImage,
-                        icon: const Icon(Icons.image),
-                        label: const Text('Select Image'),
+                      _buildTextField(
+                        controller: _descriptionController,
+                        label: 'Description',
+                        icon: Icons.description_outlined,
+                        maxLines: 3,
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildTextField(
+                              controller: _prixController,
+                              label: 'Price',
+                              icon: Icons.attach_money_rounded,
+                              isNumber: true,
+                              validator: (value) {
+                                if (value?.isEmpty ?? true) return 'Required';
+                                if (double.tryParse(value!) == null)
+                                  return 'Invalid';
+                                return null;
+                              },
+                            ),
+                          ),
+                          Container(
+                            height: 40,
+                            width: 1,
+                            color: Colors.grey[100],
+                          ),
+                          Expanded(
+                            child: _buildTextField(
+                              controller: _categorieController,
+                              label: 'Category Tag',
+                              icon: Icons.label_outline_rounded,
+                              hint: 'e.g. Spicy',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ]),
+                    const SizedBox(height: 32),
+
+                    _buildSectionTitle(
+                      'Status',
+                      Icons.check_circle_outline_rounded,
+                    ),
+                    _buildInputGroup([
+                      _buildSwitch(
+                        label: 'Availability',
+                        subtitle: 'Customers can see and order this dish',
+                        value: _disponible,
+                        onChanged: (v) => setState(() => _disponible = v),
+                      ),
+                    ]),
+                    const SizedBox(height: 48),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isUploadingImage ? null : _save,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.deepPurple,
+                          backgroundColor: Colors.black,
                           foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          widget.plat == null
+                              ? 'Add Dish to Menu'
+                              : 'Save Changes',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ),
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isUploadingImage ? null : _save,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.black),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputGroup(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: children.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final widget = entry.value;
+          return Column(
+            children: [
+              widget,
+              if (idx < children.length - 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Divider(color: Colors.grey[50], height: 1),
                 ),
-                child: _isUploadingImage
-                    ? const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Text('Uploading...'),
-                        ],
-                      )
-                    : const Text('Save Dish'),
-              ),
             ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    String? Function(String?)? validator,
+    int maxLines = 1,
+    bool isNumber = false,
+    String? hint,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        keyboardType: isNumber
+            ? const TextInputType.numberWithOptions(decimal: true)
+            : null,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          labelStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
+          prefixIcon: Icon(icon, color: Colors.black87, size: 20),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
           ),
         ),
+        validator: validator,
+      ),
+    );
+  }
+
+  Widget _buildSwitch({
+    required String label,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return SwitchListTile(
+      value: value,
+      onChanged: onChanged,
+      activeColor: Colors.black,
+      activeTrackColor: Colors.black12,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      title: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+      ),
+    );
+  }
+
+  Widget _buildImageSection() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: _selectedImage != null
+                ? Image.file(_selectedImage!, fit: BoxFit.cover)
+                : _imageUrlController.text.isNotEmpty
+                ? Image.network(
+                    _imageUrlController.text,
+                    fit: BoxFit.cover,
+                    errorBuilder: (c, e, s) => _buildImagePlaceholder(),
+                  )
+                : _buildImagePlaceholder(),
+          ),
+          InkWell(
+            onTap: _pickImage,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.02),
+                border: Border(top: BorderSide(color: Colors.grey[100]!)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.add_a_photo_rounded,
+                    size: 20,
+                    color: Colors.black,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _imageUrlController.text.isEmpty && _selectedImage == null
+                        ? 'Upload Dish Photo'
+                        : 'Change Photo',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      color: Colors.grey[50],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.fastfood_rounded, size: 48, color: Colors.grey[200]),
+          const SizedBox(height: 12),
+          Text(
+            'No Image Selected',
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -74,4 +74,14 @@ class PointDeVente {
   @override
   String toString() =>
       'PointDeVente(id: $id, nom: $nom, adresse: $adresse, actif: $actif, coordinateurId: $coordinateurId)';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PointDeVente &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }

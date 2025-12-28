@@ -10,6 +10,11 @@ import '../../repositories/order_repository.dart';
 import '../../repositories/utilisateur_repository.dart';
 import '../../repositories/point_de_vente_repository.dart';
 import '../../services/notification_service.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:async';
+import 'package:geolocator/geolocator.dart';
 
 /// Detailed view of a single order with status update options
 class OrderDetailsScreen extends StatefulWidget {
@@ -47,6 +52,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   String? _clientName;
   Role? _currentUserRole;
 
+  Utilisateur? _assignedLivreur;
+  PointDeVente? _assignedPOS;
+  List<PointDeVente> _allPOS = [];
+  final MapController _mapController = MapController();
+  Timer? _trackingTimer;
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +67,27 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     if (_currentStatus == StatusCommande.created) {
       _loadAssignmentData();
     }
+    _startTrackingTimer();
+  }
+
+  @override
+  void dispose() {
+    _trackingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startTrackingTimer() {
+    _trackingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (mounted &&
+          _currentStatus != StatusCommande.delivered &&
+          _currentStatus != StatusCommande.cancelled) {
+        if (_currentStatus == StatusCommande.created) {
+          _loadAssignmentData();
+        } else {
+          _loadAssignedNames();
+        }
+      }
+    });
   }
 
   Future<void> _loadCurrentUserRole() async {
@@ -102,7 +134,11 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           final user = _utilisateurRepository.fromFirestore(
             snapshot.docs.first,
           );
+          debugPrint(
+            'Loaded Livreur: ${user.prenom} (Lat: ${user.latitude}, Lng: ${user.longitude})',
+          );
           setState(() {
+            _assignedLivreur = user;
             _assignedLivreurName = '${user.prenom} ${user.nom}';
           });
         }
@@ -118,7 +154,11 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
         if (snapshot.docs.isNotEmpty && mounted) {
           final pos = _posRepository.fromFirestore(snapshot.docs.first);
+          debugPrint(
+            'Loaded POS: ${pos.nom} (Lat: ${pos.latitude}, Lng: ${pos.longitude})',
+          );
           setState(() {
+            _assignedPOS = pos;
             _assignedPOSName = pos.nom;
           });
         }
@@ -146,13 +186,32 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
       if (mounted) {
         setState(() {
-          _availablePOS = posList.where((p) => p.isOpenNow).toList();
+          _allPOS = posList;
+          // Build unique lists by ID to prevent "2 or more items with same value" error
+          final Map<int, PointDeVente> uniquePOS = {};
+          for (var p in posList) {
+            if (p.isOpenNow) uniquePOS[p.id] = p;
+          }
+          _availablePOS = uniquePOS.values.toList();
 
-          // Filter: Role Livreur AND Active/Available AND Not Busy
-          _availableLivreurs = livreurs.where((l) {
+          final Map<int, Utilisateur> uniqueLivreurs = {};
+          for (var l in livreurs) {
             final isFree = !busyLivreurIds.contains(l.id);
-            return l.isAvailable && l.isActive && isFree;
-          }).toList();
+            if (l.isAvailable && l.isActive && isFree) {
+              uniqueLivreurs[l.id] = l;
+            }
+          }
+          _availableLivreurs = uniqueLivreurs.values.toList();
+
+          // CRITICAL FIX: If currently selected item is no longer in the available list,
+          // we must clear the selection or Flutter's DropdownButton will crash.
+          if (_selectedPOS != null && !_availablePOS.contains(_selectedPOS)) {
+            _selectedPOS = null;
+          }
+          if (_selectedLivreur != null &&
+              !_availableLivreurs.contains(_selectedLivreur)) {
+            _selectedLivreur = null;
+          }
 
           _isLoadingData = false;
         });
@@ -177,130 +236,259 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text('Order #${widget.order.id}'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        title: const Text(
+          'ORDER DETAILS',
+          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.5),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
         elevation: 0,
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Status Banner
+            // Header Info Card
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              margin: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [statusColor.withOpacity(0.8), statusColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    _getStatusIcon(_currentStatus),
-                    size: 64,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _getStatusLabel(_currentStatus),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    DateFormat(
-                      'EEEE, MMM dd, yyyy • HH:mm',
-                    ).format(widget.order.dateCreation),
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 14,
-                    ),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.grey[100]!),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Customer Info
-            if (_clientName != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _buildSection(
-                  'Customer',
-                  Icons.person,
-                  Text(
-                    _clientName!,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'STATUS',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: statusColor.withOpacity(0.2),
+                              ),
+                            ),
+                            child: Text(
+                              _getStatusLabel(_currentStatus).toUpperCase(),
+                              style: TextStyle(
+                                color: statusColor,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 12,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'PLACED ON',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            DateFormat(
+                              'MMM dd, HH:mm',
+                            ).format(widget.order.dateCreation),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
-              ),
-
-            // Assignments Section (if accepted or later)
-            if (_currentStatus != StatusCommande.created)
-              _buildAssignmentsInfo(),
-
-            // Preparation Time Info
-            if (widget.order.estimationPreparation != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: _buildSection(
-                  'Preparation Estimate',
-                  Icons.timer,
-                  Text(
-                    '${widget.order.estimationPreparation} minutes',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange,
+                  if (widget.order.estimationPreparation != null) ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Divider(height: 1),
                     ),
-                  ),
-                ),
-              ),
-
-            const SizedBox(height: 16),
-
-            // Order Items
-            _buildSection(
-              'Order Items',
-              Icons.shopping_bag,
-              Column(
-                children: widget.order.lignes.map((ligne) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.black,
-                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.orange.withOpacity(0.1),
+                            shape: BoxShape.circle,
                           ),
-                          child: Text(
-                            '${ligne.quantite}x',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
+                          child: const Icon(
+                            Icons.timer_outlined,
+                            color: Colors.orange,
+                            size: 20,
                           ),
                         ),
                         const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'ESTIMATED PREP TIME',
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                            Text(
+                              '${widget.order.estimationPreparation} minutes',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // Assignments Banner (Blue Info)
+            if (_currentStatus != StatusCommande.created)
+              _buildAssignmentsInfo(),
+
+            // Section: Customer
+            if (_clientName != null)
+              _buildSection(
+                'Customer Info',
+                Icons.person_outline_rounded,
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.black,
+                      radius: 20,
+                      child: Text(
+                        _clientName![0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _clientName!,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            'Registered Customer',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () {}, // Future: Call/Chat
+                      icon: const Icon(
+                        Icons.call_outlined,
+                        color: Colors.black,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.grey[50],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Section: Tracking Map & Location
+            if (_currentStatus != StatusCommande.delivered &&
+                _currentStatus != StatusCommande.cancelled)
+              if (_currentUserRole == Role.gerant ||
+                  _currentUserRole == Role.coordinateur ||
+                  _currentUserRole == Role.livreur)
+                _buildTrackingMap()
+              else if (widget.order.adresse != null ||
+                  (widget.order.latitude != null &&
+                      widget.order.longitude != null))
+                _buildLocationSection(),
+
+            // Section: Order Items
+            _buildSection(
+              'Order Items (${widget.order.lignes.length})',
+              Icons.shopping_basket_outlined,
+              Column(
+                children: widget.order.lignes.map((ligne) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey[100]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.black,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${ligne.quantite}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,39 +496,28 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                               Text(
                                 ligne.plat.nom,
                                 style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
                                 ),
                               ),
                               if (ligne.plat.description.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    ligne.plat.description,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey[600],
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+                                Text(
+                                  ligne.plat.description,
+                                  style: TextStyle(
+                                    color: Colors.grey[400],
+                                    fontSize: 12,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${ligne.prixUnitaire.toStringAsFixed(2)} TND each',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
                             ],
                           ),
                         ),
                         Text(
-                          '${ligne.sousTotal.toStringAsFixed(2)} TND',
+                          '${ligne.sousTotal.toStringAsFixed(2)}',
                           style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
                           ),
                         ),
                       ],
@@ -350,48 +527,61 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               ),
             ),
 
-            const SizedBox(height: 16),
-
-            // Order Summary
+            // Section: Summary
             _buildSection(
-              'Order Summary',
-              Icons.receipt,
+              'Payment Summary',
+              Icons.receipt_long_outlined,
               Column(
                 children: [
                   _buildSummaryRow('Subtotal', widget.order.total),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   _buildSummaryRow(
-                    'Tax & Fees',
+                    'Taxes & Local Fees',
                     widget.order.totalWithTax - widget.order.total,
                   ),
-                  const Divider(height: 24),
-                  _buildSummaryRow(
-                    'Total',
-                    widget.order.totalWithTax,
-                    isTotal: true,
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Divider(height: 1),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total Amount',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        '${widget.order.totalWithTax.toStringAsFixed(2)} TND',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 24,
+                          letterSpacing: -1,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
-            // Assignment & Acceptance Workflow (Gerant Only)
+            // Workflows
             if (_currentStatus == StatusCommande.created &&
                 _currentUserRole == Role.gerant)
               _buildAssignAndAcceptSection(),
 
-            // Preparation Workflow (Coordinateur Only)
             if (_currentStatus == StatusCommande.accepted &&
                 _currentUserRole == Role.coordinateur)
               _buildPreparationAction(),
 
-            // Ready Workflow (Coordinateur Only)
             if (_currentStatus == StatusCommande.preparing &&
                 _currentUserRole == Role.coordinateur)
               _buildReadyAction(),
 
-            // Delivery Workflow (Livreur Only)
             if (_currentStatus == StatusCommande.ready &&
                 _currentUserRole == Role.livreur)
               _buildStartDeliveryAction(),
@@ -400,9 +590,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 _currentUserRole == Role.livreur)
               _buildCompleteDeliveryAction(),
 
-            const SizedBox(height: 16),
-
-            const SizedBox(height: 32),
+            const SizedBox(height: 48),
           ],
         ),
       ),
@@ -410,71 +598,124 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   Widget _buildAssignmentsInfo() {
-    // Only show if we recorded ids (which we will going forward)
-    if (widget.order.livreurId == null && widget.order.posId == null) {
+    final showPOS =
+        widget.order.posId != null && _currentUserRole != Role.coordinateur;
+    final showLivreur = widget.order.livreurId != null;
+
+    if (!showPOS && !showLivreur) {
       return const SizedBox.shrink();
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.blue.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.blue.withOpacity(0.3)),
-        ),
-        child: Column(
-          children: [
-            if (widget.order.posId != null)
-              Row(
-                children: [
-                  const Icon(Icons.store, color: Colors.blue),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Assigned Point of Sale',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                        Text(
-                          _assignedPOSName ?? 'POS #${widget.order.posId}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey[100]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          if (showPOS)
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo[50],
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
-              ),
-            if (widget.order.posId != null && widget.order.livreurId != null)
-              const Divider(height: 24),
-            if (widget.order.livreurId != null)
-              Row(
-                children: [
-                  const Icon(Icons.delivery_dining, color: Colors.blue),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Assigned Delivery Person',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                        Text(
-                          _assignedLivreurName ??
-                              'Livreur #${widget.order.livreurId}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
+                  child: const Icon(
+                    Icons.storefront_rounded,
+                    color: Colors.indigo,
+                    size: 22,
                   ),
-                ],
-              ),
-          ],
-        ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'PREPARATION POINT',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _assignedPOSName ?? 'POS #${widget.order.posId}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          if (showPOS && showLivreur)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Divider(color: Colors.grey[100], height: 1),
+            ),
+          if (widget.order.livreurId != null)
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.teal[50],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.sports_motorsports_rounded,
+                    color: Colors.teal,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'DELIVERY DRIVER',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _assignedLivreurName ??
+                            'Driver #${widget.order.livreurId}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }
@@ -483,62 +724,99 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     if (_isLoadingData) {
       return const Padding(
         padding: EdgeInsets.all(32),
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(child: CircularProgressIndicator(color: Colors.black)),
       );
     }
 
     return _buildSection(
-      'Assign & Accept',
-      Icons.assignment_ind,
+      'Assignment Hub',
+      Icons.assignment_ind_outlined,
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Select a Point of Sale and Delivery Person to accept this order.',
-            style: TextStyle(color: Colors.grey, fontSize: 13),
+          Text(
+            'PLEASE SELECT A PREPARATION POINT AND A DELIVERY DRIVER TO VALIDATE AND START THIS ORDER.',
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
           // POS Dropdown
           DropdownButtonFormField<PointDeVente>(
             decoration: InputDecoration(
-              labelText: 'Point of Sale',
-              prefixIcon: const Icon(Icons.store),
+              labelText: 'Select Point of Sale',
+              labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+              prefixIcon: const Icon(Icons.storefront_rounded, size: 20),
+              filled: true,
+              fillColor: Colors.grey[50],
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: Colors.black, width: 1),
               ),
             ),
             value: _selectedPOS,
             items: _availablePOS.map((pos) {
-              return DropdownMenuItem(value: pos, child: Text(pos.nom));
+              return DropdownMenuItem(
+                value: pos,
+                child: Text(
+                  pos.nom,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              );
             }).toList(),
-            onChanged: (value) {
-              setState(() => _selectedPOS = value);
-            },
+            onChanged: (value) => setState(() => _selectedPOS = value),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
           // Livreur Dropdown
           DropdownButtonFormField<Utilisateur>(
             decoration: InputDecoration(
-              labelText: 'Delivery Person',
-              prefixIcon: const Icon(Icons.delivery_dining),
+              labelText: 'Select Delivery Driver',
+              labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+              prefixIcon: const Icon(
+                Icons.sports_motorsports_rounded,
+                size: 20,
+              ),
+              filled: true,
+              fillColor: Colors.grey[50],
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: Colors.black, width: 1),
               ),
             ),
             value: _selectedLivreur,
             items: _availableLivreurs.map((user) {
               return DropdownMenuItem(
                 value: user,
-                child: Text('${user.prenom} ${user.nom}'),
+                child: Text(
+                  '${user.prenom} ${user.nom}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               );
             }).toList(),
-            onChanged: (value) {
-              setState(() => _selectedLivreur = value);
-            },
+            onChanged: (value) => setState(() => _selectedLivreur = value),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
 
           ElevatedButton.icon(
             onPressed:
@@ -549,26 +827,30 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 : _handleAcceptAndAssign,
             icon: _isUpdating
                 ? const SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: 18,
+                    height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.check_circle),
-            label: Text(_isUpdating ? 'Updating...' : 'Accept & Assign Order'),
+                : const Icon(Icons.check_circle_outline_rounded),
+            label: Text(
+              _isUpdating ? 'PROCESSING...' : 'ACCEPT & ASSIGN ORDER',
+            ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
+              backgroundColor: Colors.black,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: const EdgeInsets.symmetric(vertical: 20),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(16),
               ),
               textStyle: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+                letterSpacing: 1.0,
               ),
+              elevation: 0,
             ),
           ),
         ],
@@ -588,16 +870,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       // We need to update multiple fields, so let's check if the repository supports updateOrder
       // or if we need to manually update fields
 
-      final updatedOrder = Commande(
-        id: widget.order.id,
-        dateCreation: widget.order.dateCreation,
-        total: widget.order.total,
-        totalWithTax: widget.order.totalWithTax,
-        statut: StatusCommande.accepted, // Change status
-        lignes: widget.order.lignes,
-        livreurId: _selectedLivreur!.id, // Assign Livreur
-        posId: _selectedPOS!.id, // Assign POS
-        clientId: widget.order.clientId, // Preserve Client
+      final updatedOrder = widget.order.copyWith(
+        statut: StatusCommande.accepted,
+        livreurId: _selectedLivreur!.id,
+        posId: _selectedPOS!.id,
       );
 
       await _orderRepository.updateOrder(updatedOrder);
@@ -652,64 +928,65 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   Widget _buildSection(String title, IconData icon, Widget content) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, size: 22, color: Colors.black),
-                  const SizedBox(width: 8),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              content,
-            ],
+    return Container(
+      margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey[100]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 20, color: Colors.black),
+                const SizedBox(width: 12),
+                Text(
+                  title.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            content,
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildSummaryRow(String label, double amount, {bool isTotal = false}) {
+  Widget _buildSummaryRow(String label, double amount) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
           style: TextStyle(
-            fontSize: isTotal ? 18 : 14,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: isTotal ? Colors.black : Colors.grey[700],
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey[600],
           ),
         ),
         Text(
           '${amount.toStringAsFixed(2)} TND',
-          style: TextStyle(
-            fontSize: isTotal ? 20 : 15,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
             color: Colors.black,
           ),
         ),
@@ -719,17 +996,22 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   Widget _buildPreparationAction() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: ElevatedButton.icon(
         onPressed: _isUpdating ? null : _showPreparationTimeDialog,
-        icon: const Icon(Icons.restaurant),
-        label: const Text('Start Preparation'),
+        icon: const Icon(Icons.restaurant_rounded),
+        label: const Text('START PREPARATION'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.orange,
+          backgroundColor: Colors.black,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 20),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 13,
+            letterSpacing: 1.0,
           ),
         ),
       ),
@@ -738,19 +1020,24 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   Widget _buildReadyAction() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: ElevatedButton.icon(
         onPressed: _isUpdating
             ? null
             : () => _updateStatus(StatusCommande.ready),
-        icon: const Icon(Icons.check_circle_outline),
-        label: const Text('Mark as Ready'),
+        icon: const Icon(Icons.check_circle_outline_rounded),
+        label: const Text('MARK AS READY'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.purple,
+          backgroundColor: Colors.black,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 20),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 13,
+            letterSpacing: 1.0,
           ),
         ),
       ),
@@ -759,24 +1046,54 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   Future<void> _showPreparationTimeDialog() async {
     final controller = TextEditingController();
+    final travelTime = _getTotalTravelTime();
+
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Preparation Time'),
+        title: const Text('Estimation Management'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Enter estimated preparation time in minutes:'),
+            const Text('Enter estimated preparation time:'),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Minutes',
+                labelText: 'Preparation (min)',
                 border: OutlineInputBorder(),
                 suffixText: 'min',
               ),
             ),
+            if (travelTime > 0) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.delivery_dining,
+                      size: 16,
+                      color: Colors.blue,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Calculated Travel Time: +$travelTime min',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
         actions: [
@@ -786,16 +1103,19 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              final minutes = int.tryParse(controller.text);
-              if (minutes != null && minutes > 0) {
+              final prepMinutes = int.tryParse(controller.text) ?? 0;
+              if (prepMinutes > 0) {
+                final totalMinutes = prepMinutes + travelTime;
                 Navigator.pop(context);
                 _updateStatus(
                   StatusCommande.preparing,
-                  preparationTime: minutes,
+                  preparationTime: totalMinutes,
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter a valid time')),
+                  const SnackBar(
+                    content: Text('Please enter preparation time'),
+                  ),
                 );
               }
             },
@@ -803,7 +1123,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               backgroundColor: Colors.black,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Start'),
+            child: const Text('Confirm & Save'),
           ),
         ],
       ),
@@ -816,16 +1136,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }) async {
     setState(() => _isUpdating = true);
     try {
-      final updatedOrder = Commande(
-        id: widget.order.id,
-        dateCreation: widget.order.dateCreation,
-        total: widget.order.total,
-        totalWithTax: widget.order.totalWithTax,
+      final updatedOrder = widget.order.copyWith(
         statut: newStatus,
-        lignes: widget.order.lignes,
-        livreurId: widget.order.livreurId,
-        posId: widget.order.posId,
-        clientId: widget.order.clientId,
         estimationPreparation:
             preparationTime ?? widget.order.estimationPreparation,
       );
@@ -861,19 +1173,24 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   Widget _buildStartDeliveryAction() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: ElevatedButton.icon(
         onPressed: _isUpdating
             ? null
             : () => _updateStatus(StatusCommande.delivering),
-        icon: const Icon(Icons.delivery_dining),
-        label: const Text('Start Delivery'),
+        icon: const Icon(Icons.delivery_dining_rounded),
+        label: const Text('START DELIVERY'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.indigo,
+          backgroundColor: Colors.black,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 20),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 13,
+            letterSpacing: 1.0,
           ),
         ),
       ),
@@ -882,19 +1199,24 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   Widget _buildCompleteDeliveryAction() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: ElevatedButton.icon(
         onPressed: _isUpdating
             ? null
             : () => _updateStatus(StatusCommande.delivered),
-        icon: const Icon(Icons.done_all),
-        label: const Text('Complete Delivery'),
+        icon: const Icon(Icons.done_all_rounded),
+        label: const Text('COMPLETE DELIVERY'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green,
+          backgroundColor: Colors.black,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 20),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 13,
+            letterSpacing: 1.0,
           ),
         ),
       ),
@@ -920,25 +1242,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
   }
 
-  IconData _getStatusIcon(StatusCommande status) {
-    switch (status) {
-      case StatusCommande.created:
-        return Icons.receipt_long;
-      case StatusCommande.accepted:
-        return Icons.thumb_up;
-      case StatusCommande.preparing:
-        return Icons.restaurant;
-      case StatusCommande.ready:
-        return Icons.check_circle_outline;
-      case StatusCommande.delivering:
-        return Icons.delivery_dining;
-      case StatusCommande.delivered:
-        return Icons.done_all;
-      case StatusCommande.cancelled:
-        return Icons.cancel;
-    }
-  }
-
   String _getStatusLabel(StatusCommande status) {
     switch (status) {
       case StatusCommande.created:
@@ -956,5 +1259,471 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       case StatusCommande.cancelled:
         return 'Cancelled';
     }
+  }
+
+  Widget _buildLocationSection() {
+    final hasCoords =
+        widget.order.latitude != null && widget.order.longitude != null;
+
+    return _buildSection(
+      'Delivery Destination',
+      Icons.location_on_rounded,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.order.adresse != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Text(
+                widget.order.adresse!,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          if (hasCoords) ...[
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey[100]!),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: SizedBox(
+                  height: 200,
+                  child: FlutterMap(
+                    options: MapOptions(
+                      initialCenter: LatLng(
+                        widget.order.latitude!,
+                        widget.order.longitude!,
+                      ),
+                      initialZoom: 15,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.bestmlewi',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: LatLng(
+                              widget.order.latitude!,
+                              widget.order.longitude!,
+                            ),
+                            width: 50,
+                            height: 60,
+                            child: _buildMarkerWidget(
+                              'DESTINATION',
+                              Icons.location_on_rounded,
+                              Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () =>
+                  _openInMaps(widget.order.latitude!, widget.order.longitude!),
+              icon: const Icon(Icons.navigation_rounded),
+              label: const Text('GET DIRECTIONS'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  letterSpacing: 1.0,
+                ),
+                elevation: 0,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrackingMap() {
+    final List<Marker> markers = [];
+    final List<LatLng> points = [];
+
+    // 1. Order Marker
+    final orderLatLng =
+        (widget.order.latitude != null && widget.order.longitude != null)
+        ? LatLng(widget.order.latitude!, widget.order.longitude!)
+        : null;
+
+    if (orderLatLng != null) {
+      points.add(orderLatLng);
+      markers.add(
+        Marker(
+          point: orderLatLng,
+          width: 50,
+          height: 60,
+          child: _buildMarkerWidget(
+            'CLIENT',
+            Icons.person_pin_circle_rounded,
+            Colors.red,
+          ),
+        ),
+      );
+    }
+
+    // 2. POS Markers
+    if (_currentStatus == StatusCommande.created) {
+      for (final pos in _allPOS) {
+        if (pos.latitude != null && pos.longitude != null) {
+          final latLng = LatLng(pos.latitude!, pos.longitude!);
+          points.add(latLng);
+          markers.add(
+            Marker(
+              point: latLng,
+              width: 50,
+              height: 60,
+              child: _buildMarkerWidget(
+                pos.nom,
+                Icons.storefront_rounded,
+                Colors.blue,
+              ),
+            ),
+          );
+        }
+      }
+    } else if (_assignedPOS?.latitude != null &&
+        _assignedPOS?.longitude != null) {
+      final latLng = LatLng(_assignedPOS!.latitude!, _assignedPOS!.longitude!);
+      points.add(latLng);
+      markers.add(
+        Marker(
+          point: latLng,
+          width: 50,
+          height: 60,
+          child: _buildMarkerWidget(
+            'POS',
+            Icons.storefront_rounded,
+            Colors.blue,
+          ),
+        ),
+      );
+    }
+
+    // 3. Livreur Marker
+    LatLng? assignedLivreurLatLng;
+    if (_assignedLivreur?.latitude != null &&
+        _assignedLivreur?.longitude != null) {
+      assignedLivreurLatLng = LatLng(
+        _assignedLivreur!.latitude!,
+        _assignedLivreur!.longitude!,
+      );
+    }
+
+    if (_currentStatus == StatusCommande.created) {
+      for (final livreur in _availableLivreurs) {
+        if (livreur.latitude != null && livreur.longitude != null) {
+          final latLng = LatLng(livreur.latitude!, livreur.longitude!);
+          points.add(latLng);
+          markers.add(
+            Marker(
+              point: latLng,
+              width: 50,
+              height: 60,
+              child: _buildMarkerWidget(
+                '${livreur.prenom}',
+                Icons.motorcycle_rounded,
+                Colors.green,
+              ),
+            ),
+          );
+        }
+      }
+    } else if (assignedLivreurLatLng != null) {
+      points.add(assignedLivreurLatLng);
+      markers.add(
+        Marker(
+          point: assignedLivreurLatLng,
+          width: 50,
+          height: 60,
+          child: _buildMarkerWidget(
+            'DRIVER',
+            Icons.motorcycle_rounded,
+            Colors.green,
+          ),
+        ),
+      );
+    }
+
+    if (markers.isEmpty && widget.order.adresse == null) {
+      return const SizedBox.shrink();
+    }
+
+    return _buildSection(
+      'Live Order Tracking',
+      Icons.map_outlined,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.order.adresse != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.location_on_rounded,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.order.adresse!,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (markers.isNotEmpty)
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey[100]!),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: SizedBox(
+                  height: 300,
+                  child: FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: points.length > 1
+                          ? LatLng(
+                              points
+                                      .map((p) => p.latitude)
+                                      .reduce((a, b) => a + b) /
+                                  points.length,
+                              points
+                                      .map((p) => p.longitude)
+                                      .reduce((a, b) => a + b) /
+                                  points.length,
+                            )
+                          : (orderLatLng ??
+                                (points.isNotEmpty
+                                    ? points.first
+                                    : const LatLng(0, 0))),
+                      initialZoom: points.length > 1 ? 12 : 15,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.bestmlewi',
+                      ),
+                      MarkerLayer(markers: markers),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildLegendItem(
+                Icons.person_pin_circle_rounded,
+                Colors.red,
+                'CLIENT',
+              ),
+              const SizedBox(width: 16),
+              _buildLegendItem(Icons.storefront_rounded, Colors.blue, 'POS'),
+              const SizedBox(width: 16),
+              _buildLegendItem(
+                Icons.motorcycle_rounded,
+                Colors.green,
+                'DRIVER',
+              ),
+            ],
+          ),
+          if (_assignedPOS?.latitude != null &&
+              _assignedPOS?.longitude != null &&
+              _currentStatus != StatusCommande.delivering) ...[
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () => _openInMaps(
+                _assignedPOS!.latitude!,
+                _assignedPOS!.longitude!,
+              ),
+              icon: const Icon(Icons.restaurant_rounded),
+              label: const Text('DIRECTIONS TO RESTAURANT'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: Colors.black, width: 2),
+                ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  letterSpacing: 1.0,
+                ),
+                elevation: 0,
+              ),
+            ),
+          ],
+          if (orderLatLng != null) ...[
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () =>
+                  _openInMaps(orderLatLng.latitude, orderLatLng.longitude),
+              icon: const Icon(Icons.navigation_rounded),
+              label: const Text('DIRECTIONS TO CLIENT'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  letterSpacing: 1.0,
+                ),
+                elevation: 0,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMarkerWidget(String label, IconData icon, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+              color: Colors.black,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        Icon(icon, color: color, size: 28),
+      ],
+    );
+  }
+
+  Widget _buildLegendItem(IconData icon, Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 14),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            color: Colors.grey[600],
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openInMaps(double lat, double lng) async {
+    final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not open maps')));
+      }
+    }
+  }
+
+  /// Helper to calculate numeric travel time in minutes
+  int _calculateMinutes(LatLng p1, LatLng p2) {
+    final distanceInMeters = Geolocator.distanceBetween(
+      p1.latitude,
+      p1.longitude,
+      p2.latitude,
+      p2.longitude,
+    );
+    // Assume average speed of 20 km/h for city delivery (scooter/bike)
+    return ((distanceInMeters / 1000) / 20 * 60).round();
+  }
+
+  /// Calculates total delivery travel time: (Livreur to POS) + (POS to Order)
+  int _getTotalTravelTime() {
+    int total = 0;
+
+    final orderLatLng =
+        (widget.order.latitude != null && widget.order.longitude != null)
+        ? LatLng(widget.order.latitude!, widget.order.longitude!)
+        : null;
+
+    final posLatLng =
+        (_assignedPOS?.latitude != null && _assignedPOS?.longitude != null)
+        ? LatLng(_assignedPOS!.latitude!, _assignedPOS!.longitude!)
+        : null;
+
+    final livreurLatLng =
+        (_assignedLivreur?.latitude != null &&
+            _assignedLivreur?.longitude != null)
+        ? LatLng(_assignedLivreur!.latitude!, _assignedLivreur!.longitude!)
+        : null;
+
+    // 1. Livreur to POS
+    if (livreurLatLng != null && posLatLng != null) {
+      total += _calculateMinutes(livreurLatLng, posLatLng);
+    }
+
+    // 2. POS to Order
+    if (posLatLng != null && orderLatLng != null) {
+      total += _calculateMinutes(posLatLng, orderLatLng);
+    }
+
+    return total;
   }
 }

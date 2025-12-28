@@ -38,26 +38,90 @@ class _LivreurOrdersScreenState extends State<LivreurOrdersScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator(color: Colors.black)),
+      );
     }
 
     if (_currentUser == null) {
-      return const Scaffold(body: Center(child: Text('User not found')));
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Text(
+            'Driver Profile not found',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+      );
     }
 
     return DefaultTabController(
       length: 2,
       child: Scaffold(
+        backgroundColor: Colors.grey[50],
         appBar: AppBar(
-          title: const Text('My Deliveries'),
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          bottom: const TabBar(
-            indicatorColor: Colors.white,
-            tabs: [
-              Tab(text: 'Active'),
-              Tab(text: 'History'),
-            ],
+          title: const Text(
+            'My Deliveries',
+            style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.5),
+          ),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+          centerTitle: true,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('commandes')
+                  .where('livreurId', isEqualTo: _currentUser!.id)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                final docs = snapshot.data?.docs ?? [];
+                int activeCount = 0;
+                int historyCount = 0;
+
+                final List<String> activeStates = [
+                  StatusCommande.accepted.name,
+                  StatusCommande.preparing.name,
+                  StatusCommande.ready.name,
+                  StatusCommande.delivering.name,
+                ];
+
+                for (var doc in docs) {
+                  final data = doc.data() as Map<String, dynamic>?;
+                  final status = data?['statut'] as String?;
+                  if (status != null) {
+                    if (activeStates.contains(status)) {
+                      activeCount++;
+                    } else {
+                      historyCount++;
+                    }
+                  }
+                }
+
+                return TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  indicatorColor: Colors.black,
+                  labelColor: Colors.black,
+                  unselectedLabelColor: Colors.grey[400],
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                  tabs: [
+                    _buildTab('Active', activeCount),
+                    _buildTab('History', historyCount),
+                  ],
+                );
+              },
+            ),
           ),
         ),
         body: TabBarView(
@@ -66,6 +130,33 @@ class _LivreurOrdersScreenState extends State<LivreurOrdersScreen> {
             _buildOrdersList(active: false),
           ],
         ),
+      ),
+    );
+  }
+
+  Tab _buildTab(String label, int count) {
+    return Tab(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              count.toString(),
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(label),
+        ],
       ),
     );
   }
@@ -100,7 +191,9 @@ class _LivreurOrdersScreenState extends State<LivreurOrdersScreen> {
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.black),
+          );
         }
 
         final docs = snapshot.data?.docs ?? [];
@@ -109,26 +202,34 @@ class _LivreurOrdersScreenState extends State<LivreurOrdersScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  active ? Icons.delivery_dining : Icons.history,
-                  size: 64,
-                  color: Colors.grey[300],
+                Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.grey[100]!),
+                  ),
+                  child: Icon(
+                    active
+                        ? Icons.delivery_dining_rounded
+                        : Icons.history_rounded,
+                    size: 48,
+                    color: Colors.grey[200],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  active ? 'No active deliveries' : 'No history yet',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 16),
+                  active ? 'No active deliveries' : 'No history found',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
           );
         }
-
-        // We need both doc for ID and order for data.
-        // We'll sort locally.
-        // To sort easily, we map to a list of pairs or custom objects.
-        // But since we can't easily sort (Doc, Order) pairs in place without a class,
-        // we'll just sort docs by parsing dateCreation from data directly if needed, or parse all first.
 
         final parsed = docs.map((doc) {
           return {'doc': doc, 'order': _orderRepository.fromFirestore(doc)};
@@ -140,117 +241,152 @@ class _LivreurOrdersScreenState extends State<LivreurOrdersScreen> {
           return orderB.dateCreation.compareTo(orderA.dateCreation);
         });
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: parsed.length,
-          itemBuilder: (context, index) {
-            final item = parsed[index];
-            final order = item['order'] as Commande;
-            final doc = item['doc'] as DocumentSnapshot;
-            return _buildOrderCard(order, doc.id);
-          },
+        return RefreshIndicator(
+          onRefresh: () async => setState(() {}),
+          color: Colors.black,
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            physics: const BouncingScrollPhysics(),
+            itemCount: parsed.length,
+            itemBuilder: (context, index) {
+              final item = parsed[index];
+              final order = item['order'] as Commande;
+              final doc = item['doc'] as DocumentSnapshot;
+              return _buildOrderCard(order, doc.id);
+            },
+          ),
         );
       },
     );
   }
 
   Widget _buildOrderCard(Commande order, String docId) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  OrderDetailsScreen(order: order, docId: docId),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Order #${order.id}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(order.statut).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _getStatusColor(order.statut).withOpacity(0.3),
-                      ),
-                    ),
-                    child: Text(
-                      _getStatusLabel(order.statut),
-                      style: TextStyle(
-                        color: _getStatusColor(order.statut),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Icon(Icons.access_time, size: 16, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  Text(
-                    DateFormat('MMM dd, HH:mm').format(order.dateCreation),
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (order.totalWithTax > 0)
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.attach_money,
-                      size: 16,
-                      color: Colors.grey,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${order.totalWithTax.toStringAsFixed(2)} TND',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ],
+    final color = _getStatusColor(order.statut);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey[100]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      OrderDetailsScreen(order: order, docId: docId),
                 ),
-              const SizedBox(height: 8),
-              Row(
+              ).then((_) => setState(() {}));
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.shopping_bag_outlined,
-                    size: 16,
-                    color: Colors.grey,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'DELIVERY',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            DateFormat(
+                              'MMM dd, HH:mm',
+                            ).format(order.dateCreation),
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: color.withOpacity(0.2)),
+                        ),
+                        child: Text(
+                          _getStatusLabel(order.statut).toUpperCase(),
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 10,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${order.lignes.length} Items',
-                    style: const TextStyle(color: Colors.grey),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Divider(height: 1),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.shopping_basket_outlined,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '${order.lignes.length} Items Summary',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '${order.totalWithTax.toStringAsFixed(2)} TND',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -260,7 +396,7 @@ class _LivreurOrdersScreenState extends State<LivreurOrdersScreen> {
   Color _getStatusColor(StatusCommande status) {
     switch (status) {
       case StatusCommande.created:
-        return Colors.blue;
+        return Colors.blueAccent;
       case StatusCommande.accepted:
         return Colors.teal;
       case StatusCommande.preparing:
@@ -272,26 +408,11 @@ class _LivreurOrdersScreenState extends State<LivreurOrdersScreen> {
       case StatusCommande.delivered:
         return Colors.green;
       case StatusCommande.cancelled:
-        return Colors.red;
+        return Colors.redAccent;
     }
   }
 
   String _getStatusLabel(StatusCommande status) {
-    switch (status) {
-      case StatusCommande.created:
-        return 'Created';
-      case StatusCommande.accepted:
-        return 'Accepted';
-      case StatusCommande.preparing:
-        return 'Preparing';
-      case StatusCommande.ready:
-        return 'Ready';
-      case StatusCommande.delivering:
-        return 'Delivering';
-      case StatusCommande.delivered:
-        return 'Delivered';
-      case StatusCommande.cancelled:
-        return 'Cancelled';
-    }
+    return status.name[0].toUpperCase() + status.name.substring(1);
   }
 }

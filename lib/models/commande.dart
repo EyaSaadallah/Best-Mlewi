@@ -53,6 +53,39 @@ class Commande {
     return lignes.fold(0, (sum, ligne) => sum + ligne.sousTotal);
   }
 
+  Commande copyWith({
+    int? id,
+    DateTime? dateCreation,
+    double? total,
+    double? totalWithTax,
+    StatusCommande? statut,
+    List<LigneCommande>? lignes,
+    int? livreurId,
+    int? posId,
+    int? clientId,
+    int? estimationPreparation,
+    String? adresse,
+    double? latitude,
+    double? longitude,
+  }) {
+    return Commande(
+      id: id ?? this.id,
+      dateCreation: dateCreation ?? this.dateCreation,
+      total: total ?? this.total,
+      totalWithTax: totalWithTax ?? this.totalWithTax,
+      statut: statut ?? this.statut,
+      lignes: lignes ?? this.lignes,
+      livreurId: livreurId ?? this.livreurId,
+      posId: posId ?? this.posId,
+      clientId: clientId ?? this.clientId,
+      estimationPreparation:
+          estimationPreparation ?? this.estimationPreparation,
+      adresse: adresse ?? this.adresse,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+    );
+  }
+
   @override
   String toString() =>
       'Commande(id: $id, dateCreation: $dateCreation, total: $total, statut: $statut)';

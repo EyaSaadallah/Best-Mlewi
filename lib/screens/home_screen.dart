@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../services/firebase_auth_service.dart';
 import '../models/enums.dart';
 import '../models/utilisateur.dart';
@@ -72,11 +73,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildAvailabilitySwitch(bool currentStatus) {
     return SwitchListTile(
-      title: const Text('Available for Assignment'),
+      activeColor: Colors.black,
+      activeTrackColor: Colors.black12,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      title: const Text(
+        'Available for Assignment',
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      ),
       subtitle: Text(
         currentStatus
             ? 'You are visible to managers'
             : 'You are hidden from managers',
+        style: TextStyle(color: Colors.grey[600], fontSize: 13),
       ),
       value: currentStatus,
       onChanged: _isUpdatingAvailability
@@ -473,11 +481,18 @@ class _HomeScreenState extends State<HomeScreen> {
       stream: _notificationService.getUserNotifications(user.id),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.black),
+          );
         }
 
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          return Center(
+            child: Text(
+              'Error: ${snapshot.error}',
+              style: const TextStyle(color: Colors.redAccent),
+            ),
+          );
         }
 
         final notifications = snapshot.data ?? [];
@@ -487,15 +502,31 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.notifications_none,
-                  size: 64,
-                  color: Colors.grey[400],
+                Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.notifications_off_outlined,
+                    size: 80,
+                    color: Colors.grey[200],
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 Text(
-                  'No notifications yet',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                  'Your inbox is empty',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 20,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'We\'ll notify you when something happens',
+                  style: TextStyle(color: Colors.grey[400], fontSize: 14),
                 ),
               ],
             ),
@@ -503,145 +534,175 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 20),
           itemCount: notifications.length,
           itemBuilder: (context, index) {
             final notif = notifications[index];
+            final color = _getNotifColor(notif.type);
+
             return Dismissible(
               key: Key(notif.id.toString()),
               background: Container(
-                color: Colors.black,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.red[400],
+                  borderRadius: BorderRadius.circular(20),
+                ),
                 alignment: Alignment.centerRight,
-                padding: const EdgeInsets.only(right: 16),
-                child: const Icon(Icons.delete, color: Colors.white),
+                padding: const EdgeInsets.only(right: 24),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
               ),
               direction: DismissDirection.endToStart,
               onDismissed: (direction) {
                 _notificationService.deleteNotification(notif.id);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Notification deleted'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
               },
-              child: Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                decoration: BoxDecoration(
+                  color: notif.lu ? Colors.white : color.withOpacity(0.02),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: notif.lu
+                        ? Colors.grey[100]!
+                        : color.withOpacity(0.1),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    if (!notif.lu)
+                      BoxShadow(
+                        color: color.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                  ],
                 ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.grey[200],
-                    child: Icon(
-                      notif.type == NotificationType.error
-                          ? Icons.error
-                          : Icons.info,
-                      color: Colors.black,
-                    ),
-                  ),
-                  title: Text(
-                    notif.message,
-                    style: TextStyle(
-                      fontWeight: !notif.lu
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                    ),
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      notif.dateEnvoi.toString().split('.')[0],
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!notif.lu)
-                        Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          child: const CircleAvatar(
-                            radius: 4,
-                            backgroundColor: Colors.black,
-                          ),
-                        ),
-                      // Delete button
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () async {
-                            // Show confirmation dialog
-                            final shouldDelete = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Delete Notification'),
-                                content: const Text(
-                                  'Are you sure you want to delete this notification?',
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(false),
-                                    child: const Text('Cancel'),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        if (!notif.lu) {
+                          _notificationService.markAsRead(notif.id);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Type Indicator Icon
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: notif.lu
+                                    ? Colors.grey[50]
+                                    : color.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Icon(
+                                _getNotifIcon(notif.type),
+                                color: notif.lu ? Colors.grey[400] : color,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            // Content
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        notif.type.name.toUpperCase(),
+                                        style: TextStyle(
+                                          color: notif.lu
+                                              ? Colors.grey[400]
+                                              : color,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 1,
+                                        ),
+                                      ),
+                                      Text(
+                                        DateFormat(
+                                          'HH:mm',
+                                        ).format(notif.dateEnvoi),
+                                        style: TextStyle(
+                                          color: Colors.grey[400],
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  ElevatedButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(true),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.black,
-                                      foregroundColor: Colors.white,
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    notif.message,
+                                    style: TextStyle(
+                                      color: Colors.black87,
+                                      fontSize: 14,
+                                      fontWeight: notif.lu
+                                          ? FontWeight.w500
+                                          : FontWeight.w700,
+                                      height: 1.4,
                                     ),
-                                    child: const Text('Delete'),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    DateFormat(
+                                      'MMM dd, yyyy',
+                                    ).format(notif.dateEnvoi),
+                                    style: TextStyle(
+                                      color: Colors.grey[400],
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ],
                               ),
-                            );
-
-                            if (shouldDelete == true) {
-                              await _notificationService.deleteNotification(
-                                notif.id,
-                              );
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Notification deleted'),
-                                    duration: Duration(seconds: 2),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(
-                              Icons.delete_outline,
-                              color: Colors.black54,
-                              size: 20,
+                            if (!notif.lu)
+                              Container(
+                                margin: const EdgeInsets.only(left: 12, top: 4),
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: color.withOpacity(0.4),
+                                      blurRadius: 4,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: () => _notificationService
+                                  .deleteNotification(notif.id),
+                              icon: const Icon(Icons.delete_outline_rounded),
+                              color: Colors.grey[300],
+                              iconSize: 20,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              splashRadius: 20,
                             ),
-                          ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                  onTap: () {
-                    if (!notif.lu) {
-                      _notificationService.markAsRead(notif.id);
-                    }
-                  },
                 ),
               ),
             );
@@ -651,115 +712,268 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildProfile(Utilisateur user) {
-    final themeColor = _getRoleColor(user.role);
+  Color _getNotifColor(NotificationType type) {
+    switch (type) {
+      case NotificationType.success:
+        return Colors.green;
+      case NotificationType.error:
+        return Colors.redAccent;
+      case NotificationType.warning:
+        return Colors.orange;
+      case NotificationType.info:
+        return Colors.indigo;
+    }
+  }
 
+  IconData _getNotifIcon(NotificationType type) {
+    switch (type) {
+      case NotificationType.success:
+        return Icons.check_circle_outline_rounded;
+      case NotificationType.error:
+        return Icons.error_outline_rounded;
+      case NotificationType.warning:
+        return Icons.warning_amber_rounded;
+      case NotificationType.info:
+        return Icons.info_outline_rounded;
+    }
+  }
+
+  Widget _buildProfile(Utilisateur user) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      physics: const BouncingScrollPhysics(),
       child: Column(
         children: [
-          Stack(
-            children: [
-              CircleAvatar(
-                radius: 50,
-                backgroundColor: themeColor,
-                backgroundImage: user.imageUrl != null
-                    ? NetworkImage(user.imageUrl!)
-                    : null,
-                child: user.imageUrl == null
-                    ? Text(
-                        user.prenom.isNotEmpty
-                            ? user.prenom[0].toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                          fontSize: 40,
-                          color: Colors.white,
-                        ),
-                      )
-                    : null,
+          // Premium Header with Avatar
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.only(top: 60, bottom: 40),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(40),
+                bottomRight: Radius.circular(40),
               ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: CircleAvatar(
-                  backgroundColor: Colors.white,
-                  radius: 18,
-                  child: IconButton(
-                    icon: const Icon(Icons.edit, size: 18),
-                    color: themeColor,
-                    onPressed: () => _handleEditProfile(user),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white24,
+                        shape: BoxShape.circle,
+                      ),
+                      child: CircleAvatar(
+                        radius: 55,
+                        backgroundColor: Colors.grey[900],
+                        backgroundImage: user.imageUrl != null
+                            ? NetworkImage(user.imageUrl!)
+                            : null,
+                        child: user.imageUrl == null
+                            ? Text(
+                                user.prenom.isNotEmpty
+                                    ? user.prenom[0].toUpperCase()
+                                    : '?',
+                                style: const TextStyle(
+                                  fontSize: 40,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => _handleEditProfile(user),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.edit_rounded,
+                          size: 20,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '${user.prenom} ${user.nom}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '${user.prenom} ${user.nom}',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: themeColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: themeColor.withOpacity(0.3)),
-            ),
-            child: Text(
-              user.role.name.toUpperCase(),
-              style: TextStyle(
-                color: themeColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    user.role.name.toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 10,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 32),
 
-          // Info Cards
-          _buildProfileItem(Icons.email, 'Email', user.email),
-          _buildProfileItem(Icons.phone, 'Phone', user.telephone),
-          if (user.adresse != null && user.adresse!.isNotEmpty)
-            _buildProfileItem(Icons.location_on, 'Address', user.adresse!),
-          _buildProfileItem(
-            Icons.calendar_today,
-            'Joined',
-            user.dateInscription.toString().split(' ')[0],
-          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Personal Information',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildInfoGroup([
+                  _buildProfileItem(
+                    Icons.email_outlined,
+                    'Email Address',
+                    user.email,
+                  ),
+                  _buildProfileItem(
+                    Icons.phone_outlined,
+                    'Phone Number',
+                    user.telephone,
+                  ),
+                  if (user.adresse != null && user.adresse!.isNotEmpty)
+                    _buildProfileItem(
+                      Icons.location_on_outlined,
+                      'Main Address',
+                      user.adresse!,
+                    ),
+                  _buildProfileItem(
+                    Icons.calendar_today_outlined,
+                    'Member Since',
+                    user.dateInscription.toString().split(' ')[0],
+                  ),
+                ]),
 
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 24),
+                const SizedBox(height: 32),
 
-          // Availability for staff (except Gerant)
-          if (user.role != Role.client &&
-              user.role != Role.visiteur &&
-              user.role != Role.gerant) ...[
-            _buildAvailabilitySwitch(user.isAvailable),
-            const SizedBox(height: 24),
-          ],
+                // Staff Specific Section
+                if (user.role != Role.client &&
+                    user.role != Role.visiteur &&
+                    user.role != Role.gerant) ...[
+                  const Text(
+                    'Work Status',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey[100]!),
+                    ),
+                    child: _buildAvailabilitySwitch(user.isAvailable),
+                  ),
+                  const SizedBox(height: 32),
+                ],
 
-          // Logout Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                await _authService.signOutGoogle();
-                if (mounted) {
-                  Navigator.of(context).pushReplacementNamed('/visitor');
-                }
-              },
-              icon: const Icon(Icons.logout),
-              label: const Text('Logout'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
+                // Logout Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      await _authService.signOutGoogle();
+                      if (mounted) {
+                        Navigator.of(context).pushReplacementNamed('/visitor');
+                      }
+                    },
+                    icon: const Icon(Icons.logout_rounded),
+                    label: const Text(
+                      'Sign Out',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[50],
+                      foregroundColor: Colors.red[700],
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInfoGroup(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey[100]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: children.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final widget = entry.value;
+          return Column(
+            children: [
+              widget,
+              if (idx < children.length - 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Divider(color: Colors.grey[50], height: 1),
+                ),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
@@ -892,10 +1106,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildProfileItem(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Colors.grey[600]),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 22, color: Colors.black87),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -903,9 +1124,22 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   label,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
                 ),
-                Text(value, style: const TextStyle(fontSize: 16)),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: Colors.black,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1012,21 +1246,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: Theme.of(
                     context,
                   ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Icon(Icons.menu, color: Colors.white70, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Open the menu to access management tools',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),

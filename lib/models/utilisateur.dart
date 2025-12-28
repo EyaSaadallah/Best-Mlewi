@@ -56,4 +56,14 @@ class Utilisateur {
   @override
   String toString() =>
       'Utilisateur(id: $id, nom: $nom, prenom: $prenom, email: $email, role: $role)';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Utilisateur &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }

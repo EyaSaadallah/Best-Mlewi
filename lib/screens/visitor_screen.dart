@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'dart:io';
 import '../repositories/menu_repository.dart';
-import '../repositories/utilisateur_repository.dart';
 import '../models/menu.dart';
 import '../models/plat.dart';
 import '../services/firebase_auth_service.dart';
 import '../models/utilisateur.dart';
-import '../models/client.dart';
-import '../models/livreur.dart';
-import '../models/coordinateur.dart';
-import '../models/collaborateur.dart';
 import '../models/enums.dart';
 import '../services/notification_service.dart';
 import '../models/notification.dart' as notif_model;
@@ -20,6 +16,8 @@ import 'cart_screen.dart';
 import 'dish_details_screen.dart';
 import 'login_screen.dart' as login_screen;
 import 'profile_edit_screen.dart';
+import 'client/client_order_details_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Visitor screen – unauthenticated users can browse the menu.
 /// When a client is logged in, extra tabs (Profile, Notifications, Orders)
@@ -496,229 +494,211 @@ class _VisitorScreenState extends State<VisitorScreen> {
   Widget _buildProfileTab() {
     final user = _currentUser;
     if (user == null) return const Center(child: Text('Please log in'));
-    final themeColor = Colors.black; // Updated to black
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      physics: const BouncingScrollPhysics(),
       child: Column(
         children: [
-          Stack(
-            children: [
-              CircleAvatar(
-                radius: 50,
-                backgroundColor: themeColor,
-                backgroundImage: user.imageUrl != null
-                    ? NetworkImage(user.imageUrl!)
-                    : null,
-                child: user.imageUrl == null
-                    ? Text(
-                        user.prenom.isNotEmpty
-                            ? user.prenom[0].toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                          fontSize: 40,
-                          color: Colors.white,
-                        ),
-                      )
-                    : null,
+          // Premium Header with Avatar
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.only(top: 60, bottom: 40),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(40),
+                bottomRight: Radius.circular(40),
               ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: CircleAvatar(
-                  backgroundColor: Colors.white,
-                  radius: 18,
-                  child: IconButton(
-                    icon: const Icon(Icons.edit, size: 18),
-                    color: themeColor,
-                    onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProfileEditScreen(user: user),
-                        ),
-                      );
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white24,
+                        shape: BoxShape.circle,
+                      ),
+                      child: CircleAvatar(
+                        radius: 55,
+                        backgroundColor: Colors.grey[900],
+                        backgroundImage: user.imageUrl != null
+                            ? NetworkImage(user.imageUrl!)
+                            : null,
+                        child: user.imageUrl == null
+                            ? Text(
+                                user.prenom.isNotEmpty
+                                    ? user.prenom[0].toUpperCase()
+                                    : '?',
+                                style: const TextStyle(
+                                  fontSize: 40,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProfileEditScreen(user: user),
+                          ),
+                        );
 
-                      if (result != null && result is Map<String, dynamic>) {
-                        try {
-                          Utilisateur updatedUser;
-                          if (user.role == Role.client) {
-                            updatedUser = Client(
-                              id: user.id,
-                              nom: result['nom'],
-                              prenom: result['prenom'],
-                              email: user.email,
-                              motDePasse: user.motDePasse,
-                              telephone: result['telephone'],
-                              dateInscription: user.dateInscription,
-                              isActive: user.isActive,
-                              isAffected: user.isAffected,
-                              isAvailable: user.isAvailable,
-                              adresse: result['adresse'],
-                              latitude: result['latitude'],
-                              longitude: result['longitude'],
-                              imageUrl: result['imageUrl'],
-                            );
-                          } else if (user.role == Role.livreur) {
-                            updatedUser = Livreur(
-                              id: user.id,
-                              nom: result['nom'],
-                              prenom: result['prenom'],
-                              email: user.email,
-                              motDePasse: user.motDePasse,
-                              telephone: result['telephone'],
-                              dateInscription: user.dateInscription,
-                              isActive: user.isActive,
-                              isAffected: user.isAffected,
-                              isAvailable: user.isAvailable,
-                              imageUrl: result['imageUrl'],
-                              adresse: result['adresse'],
-                              latitude: result['latitude'],
-                              longitude: result['longitude'],
-                            );
-                          } else if (user.role == Role.coordinateur) {
-                            updatedUser = Coordinateur(
-                              id: user.id,
-                              nom: result['nom'],
-                              prenom: result['prenom'],
-                              email: user.email,
-                              motDePasse: user.motDePasse,
-                              telephone: result['telephone'],
-                              dateInscription: user.dateInscription,
-                              isActive: user.isActive,
-                              isAffected: user.isAffected,
-                              isAvailable: user.isAvailable,
-                              imageUrl: result['imageUrl'],
-                              adresse: result['adresse'],
-                              latitude: result['latitude'],
-                              longitude: result['longitude'],
-                            );
-                          } else if (user.role == Role.collaborateur) {
-                            updatedUser = Collaborateur(
-                              id: user.id,
-                              nom: result['nom'],
-                              prenom: result['prenom'],
-                              email: user.email,
-                              motDePasse: user.motDePasse,
-                              telephone: result['telephone'],
-                              dateInscription: user.dateInscription,
-                              isActive: user.isActive,
-                              isAffected: user.isAffected,
-                              isAvailable: user.isAvailable,
-                              imageUrl: result['imageUrl'],
-                              adresse: result['adresse'],
-                              latitude: result['latitude'],
-                              longitude: result['longitude'],
-                            );
-                          } else {
-                            updatedUser = Utilisateur(
-                              id: user.id,
-                              nom: result['nom'],
-                              prenom: result['prenom'],
-                              email: user.email,
-                              motDePasse: user.motDePasse,
-                              telephone: result['telephone'],
-                              dateInscription: user.dateInscription,
-                              role: user.role,
-                              isActive: user.isActive,
-                              isAffected: user.isAffected,
-                              isAvailable: user.isAvailable,
-                              imageUrl: result['imageUrl'],
-                              adresse: result['adresse'],
-                              latitude: result['latitude'],
-                              longitude: result['longitude'],
-                            );
-                          }
-
-                          await UtilisateurRepository().updateUser(updatedUser);
-                          _authService.updateCurrentUser(updatedUser);
-
-                          if (result['password'] != null &&
-                              result['oldPassword'] != null) {
-                            await _authService.updatePasswordWithReauth(
-                              result['oldPassword'],
-                              result['password'],
-                            );
-                          }
-
-                          setState(() {});
-
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Profile updated successfully'),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error updating profile: $e'),
-                              ),
-                            );
+                        if (result != null && result is Map<String, dynamic>) {
+                          try {
+                            // Update local state if needed
+                            setState(() {});
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Profile updated successfully'),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error updating profile: $e'),
+                                ),
+                              );
+                            }
                           }
                         }
-                      }
-                    },
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.edit_rounded,
+                          size: 20,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '${user.prenom} ${user.nom}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '${user.prenom} ${user.nom}',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: themeColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: themeColor.withOpacity(0.3)),
-            ),
-            child: Text(
-              user.role.name.toUpperCase(),
-              style: TextStyle(
-                color: themeColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
-          _buildProfileItem(Icons.email, 'Email', user.email),
-          _buildProfileItem(Icons.phone, 'Phone', user.telephone),
-          if (user.adresse != null && user.adresse!.isNotEmpty)
-            _buildProfileItem(Icons.location_on, 'Address', user.adresse!),
-          _buildProfileItem(
-            Icons.calendar_today,
-            'Joined',
-            user.dateInscription.toString().split(' ')[0],
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                await _authService.logout();
-                setState(() {
-                  _selectedIndex = 0; // Reset to Home tab
-                });
-              },
-              icon: const Icon(Icons.logout, color: Colors.white),
-              label: const Text(
-                'Logout',
-                style: TextStyle(color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    user.role.name.toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 10,
+                      letterSpacing: 1,
+                    ),
+                  ),
                 ),
-              ),
+              ],
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Personal Information',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildInfoGroup([
+                  _buildProfileItem(
+                    Icons.email_outlined,
+                    'Email Address',
+                    user.email,
+                  ),
+                  _buildProfileItem(
+                    Icons.phone_outlined,
+                    'Phone Number',
+                    user.telephone,
+                  ),
+                  if (user.adresse != null && user.adresse!.isNotEmpty)
+                    _buildProfileItem(
+                      Icons.location_on_outlined,
+                      'Main Address',
+                      user.adresse!,
+                    ),
+                  _buildProfileItem(
+                    Icons.calendar_today_outlined,
+                    'Member Since',
+                    user.dateInscription.toString().split(' ')[0],
+                  ),
+                ]),
+
+                const SizedBox(height: 32),
+
+                // Logout Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      await _authService.logout();
+                      setState(() {
+                        _selectedIndex = 0; // Reset to Home tab
+                      });
+                    },
+                    icon: const Icon(Icons.logout_rounded),
+                    label: const Text(
+                      'Sign Out',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[50],
+                      foregroundColor: Colors.red[700],
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
             ),
           ),
         ],
@@ -726,56 +706,259 @@ class _VisitorScreenState extends State<VisitorScreen> {
     );
   }
 
+  Widget _buildInfoGroup(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey[100]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: children.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final widget = entry.value;
+          return Column(
+            children: [
+              widget,
+              if (idx < children.length - 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Divider(color: Colors.grey[50], height: 1),
+                ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _buildNotificationsTab() {
     final user = _currentUser;
     if (user == null) return const Center(child: Text('Please log in'));
+
     return StreamBuilder<List<notif_model.Notification>>(
       stream: _notificationService.getUserNotifications(user.id),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.black),
+          );
         }
+
         final notifications = snapshot.data ?? [];
+
         if (notifications.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.notifications_none, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text('No notifications yet'),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.notifications_off_outlined,
+                    size: 80,
+                    color: Colors.grey[200],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'No notifications yet',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 20,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'We\'ll notify you when something happens',
+                  style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                ),
               ],
             ),
           );
         }
+
         return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 20),
           itemCount: notifications.length,
           itemBuilder: (context, index) {
             final notif = notifications[index];
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.grey[200]!),
+            final color = _getNotifColor(notif.type);
+
+            return Dismissible(
+              key: Key(notif.id.toString()),
+              background: Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.red[400],
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 24),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
               ),
-              child: ListTile(
-                title: Text(
-                  notif.message,
-                  style: TextStyle(
-                    fontWeight: notif.lu ? FontWeight.normal : FontWeight.bold,
+              direction: DismissDirection.endToStart,
+              onDismissed: (direction) {
+                _notificationService.deleteNotification(notif.id);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                decoration: BoxDecoration(
+                  color: notif.lu ? Colors.white : color.withOpacity(0.02),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: notif.lu
+                        ? Colors.grey[100]!
+                        : color.withOpacity(0.1),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    if (!notif.lu)
+                      BoxShadow(
+                        color: color.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        if (!notif.lu) {
+                          _notificationService.markAsRead(notif.id);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: notif.lu
+                                    ? Colors.grey[50]
+                                    : color.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Icon(
+                                _getNotifIcon(notif.type),
+                                color: notif.lu ? Colors.grey[400] : color,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        notif.type.name.toUpperCase(),
+                                        style: TextStyle(
+                                          color: notif.lu
+                                              ? Colors.grey[400]
+                                              : color,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 1,
+                                        ),
+                                      ),
+                                      Text(
+                                        DateFormat(
+                                          'HH:mm',
+                                        ).format(notif.dateEnvoi),
+                                        style: TextStyle(
+                                          color: Colors.grey[400],
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    notif.message,
+                                    style: TextStyle(
+                                      color: Colors.black87,
+                                      fontSize: 14,
+                                      fontWeight: notif.lu
+                                          ? FontWeight.w500
+                                          : FontWeight.w700,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    DateFormat(
+                                      'MMM dd, yyyy',
+                                    ).format(notif.dateEnvoi),
+                                    style: TextStyle(
+                                      color: Colors.grey[400],
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (!notif.lu)
+                              Container(
+                                margin: const EdgeInsets.only(left: 12, top: 4),
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: color.withOpacity(0.4),
+                                      blurRadius: 4,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: () => _notificationService
+                                  .deleteNotification(notif.id),
+                              icon: const Icon(Icons.delete_outline_rounded),
+                              color: Colors.grey[300],
+                              iconSize: 20,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              splashRadius: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                subtitle: Text(notif.dateEnvoi.toString().split('.')[0]),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.black54),
-                  onPressed: () async {
-                    await _notificationService.deleteNotification(notif.id);
-                    setState(() {});
-                  },
-                ),
-                onTap: () => _notificationService.markAsRead(notif.id),
               ),
             );
           },
@@ -784,14 +967,43 @@ class _VisitorScreenState extends State<VisitorScreen> {
     );
   }
 
+  Color _getNotifColor(NotificationType type) {
+    switch (type) {
+      case NotificationType.success:
+        return Colors.green;
+      case NotificationType.error:
+        return Colors.redAccent;
+      case NotificationType.warning:
+        return Colors.orange;
+      case NotificationType.info:
+        return Colors.indigo;
+    }
+  }
+
+  IconData _getNotifIcon(NotificationType type) {
+    switch (type) {
+      case NotificationType.success:
+        return Icons.check_circle_outline_rounded;
+      case NotificationType.error:
+        return Icons.error_outline_rounded;
+      case NotificationType.warning:
+        return Icons.warning_amber_rounded;
+      case NotificationType.info:
+        return Icons.info_outline_rounded;
+    }
+  }
+
   Widget _buildOrdersTab() {
     final user = _currentUser;
     if (user == null) {
       return const Center(child: Text('Please log in to view orders'));
     }
 
-    return StreamBuilder<List<Commande>>(
-      stream: OrderRepository().getOrdersStreamByClientId(user.id),
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('commandes')
+          .where('clientId', isEqualTo: user.id)
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -819,9 +1031,9 @@ class _VisitorScreenState extends State<VisitorScreen> {
           );
         }
 
-        final orders = snapshot.data ?? [];
+        final docs = snapshot.data?.docs ?? [];
 
-        if (orders.isEmpty) {
+        if (docs.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -867,17 +1079,27 @@ class _VisitorScreenState extends State<VisitorScreen> {
           );
         }
 
+        // Sort docs by dateCreation field
+        final sortedDocs = docs.toList();
+        sortedDocs.sort((a, b) {
+          final aTime =
+              (a.data() as Map<String, dynamic>)['dateCreation'] as Timestamp;
+          final bTime =
+              (b.data() as Map<String, dynamic>)['dateCreation'] as Timestamp;
+          return bTime.compareTo(aTime);
+        });
+
         return RefreshIndicator(
           onRefresh: () async {
-            // StreamBuilder will handle the update, but we can call setState to be sure
             setState(() {});
           },
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: orders.length,
+            itemCount: sortedDocs.length,
             itemBuilder: (context, index) {
-              final order = orders[index];
-              return _buildOrderCard(order);
+              final doc = sortedDocs[index];
+              final order = OrderRepository().fromFirestore(doc);
+              return _buildOrderCard(order, doc.id);
             },
           ),
         );
@@ -885,189 +1107,278 @@ class _VisitorScreenState extends State<VisitorScreen> {
     );
   }
 
-  Widget _buildOrderCard(Commande order) {
+  Widget _buildOrderCard(Commande order, String docId) {
     final statusColor = _getStatusColor(order.statut);
     final deliveryFee = order.total * 0.05;
     final tax = order.total * 0.1;
 
-    // Ensure totalWithTax is valid
     final totalWithTax = order.totalWithTax > 0
         ? order.totalWithTax
         : (order.total + deliveryFee + tax);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey[200]!),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+        border: Border.all(color: Colors.grey[100]!),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Order header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Order #${order.id}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      order.dateCreation.toString().split('.')[0],
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: statusColor),
-                  ),
-                  child: Text(
-                    order.statut.name.toUpperCase(),
-                    style: TextStyle(
-                      color: statusColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Divider(),
-            const SizedBox(height: 12),
-            // Order items
-            Text(
-              'Items (${order.lignes.length})',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-            const SizedBox(height: 8),
-            ...order.lignes.map((ligne) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${ligne.plat.nom} x${ligne.quantite}',
-                        style: const TextStyle(fontSize: 13),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Text(
-                      '\$${ligne.sousTotal.toStringAsFixed(2)} DT',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Material(
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      ClientOrderDetailsScreen(order: order, docId: docId),
                 ),
               );
-            }).toList(),
-            const SizedBox(height: 12),
-            const Divider(),
-            const SizedBox(height: 12),
-            // Order summary
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Subtotal', style: TextStyle(color: Colors.grey[700])),
-                Text(
-                  '\$${order.total.toStringAsFixed(2)} DT',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Delivery', style: TextStyle(color: Colors.grey[700])),
-                Text(
-                  '\$${deliveryFee.toStringAsFixed(2)} DT',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Tax', style: TextStyle(color: Colors.grey[700])),
-                Text(
-                  '\$${tax.toStringAsFixed(2)} DT',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: Colors.grey[300]!)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Total',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  // Header: #ID and Status
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Order #${order.id}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 18,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            DateFormat(
+                              'MMM dd, yyyy • HH:mm',
+                            ).format(order.dateCreation),
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getStatusIcon(order.statut),
+                              color: statusColor,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              order.statut.name.toUpperCase(),
+                              style: TextStyle(
+                                color: statusColor,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 10,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    '\$${totalWithTax.toStringAsFixed(2)} DT',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: Colors.black,
-                    ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Divider(height: 1),
+                  ),
+
+                  // Items Preview
+                  ...order.lignes.map((ligne) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${ligne.quantite}x',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              ligne.plat.nom,
+                              style: TextStyle(
+                                color: Colors.grey[800],
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${ligne.sousTotal.toStringAsFixed(2)} TND',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Divider(height: 1),
+                  ),
+
+                  // Total and Actions
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Total Amount',
+                            style: TextStyle(color: Colors.grey, fontSize: 11),
+                          ),
+                          Text(
+                            '${totalWithTax.toStringAsFixed(2)} TND',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 20,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (order.statut == StatusCommande.delivering)
+                        _buildActionButton(
+                          'Track',
+                          Icons.radar_rounded,
+                          Colors.black,
+                          () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ClientOrderDetailsScreen(
+                                order: order,
+                                docId: docId,
+                              ),
+                            ),
+                          ),
+                        )
+                      else if (order.statut != StatusCommande.cancelled &&
+                          order.statut != StatusCommande.created)
+                        _buildActionButton(
+                          'Details',
+                          Icons.arrow_forward_ios,
+                          Colors.grey[800]!,
+                          () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ClientOrderDetailsScreen(
+                                order: order,
+                                docId: docId,
+                              ),
+                            ),
+                          ),
+                          isSmall: true,
+                        )
+                      else if (order.statut == StatusCommande.created)
+                        _buildActionButton(
+                          'Cancel',
+                          Icons.close,
+                          Colors.red[600]!,
+                          () => _handleCancelOrder(order.id),
+                        ),
+                    ],
                   ),
                 ],
               ),
             ),
-
-            // Cancel Button for Clients (only if status is created)
-            if (order.statut == StatusCommande.created) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _handleCancelOrder(order.id),
-                  icon: const Icon(Icons.cancel_outlined, size: 18),
-                  label: const Text('Cancel Order'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildActionButton(
+    String label,
+    IconData icon,
+    Color color,
+    VoidCallback onPressed, {
+    bool isSmall = false,
+  }) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: isSmall ? 14 : 18),
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: isSmall ? 12 : 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        padding: EdgeInsets.symmetric(
+          horizontal: isSmall ? 16 : 24,
+          vertical: 12,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+    );
+  }
+
+  IconData _getStatusIcon(StatusCommande status) {
+    switch (status) {
+      case StatusCommande.created:
+        return Icons.timer_outlined;
+      case StatusCommande.accepted:
+        return Icons.check_circle_outline;
+      case StatusCommande.preparing:
+        return Icons.restaurant_menu;
+      case StatusCommande.ready:
+        return Icons.shopping_bag_outlined;
+      case StatusCommande.delivering:
+        return Icons.delivery_dining;
+      case StatusCommande.delivered:
+        return Icons.home_work_outlined;
+      case StatusCommande.cancelled:
+        return Icons.cancel_outlined;
+    }
   }
 
   Future<void> _handleCancelOrder(int orderId) async {
@@ -1148,10 +1459,17 @@ class _VisitorScreenState extends State<VisitorScreen> {
   // Helper widget for profile rows
   Widget _buildProfileItem(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Colors.grey[600]),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 22, color: Colors.black87),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -1159,9 +1477,22 @@ class _VisitorScreenState extends State<VisitorScreen> {
               children: [
                 Text(
                   label,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
                 ),
-                Text(value, style: const TextStyle(fontSize: 16)),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: Colors.black,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
