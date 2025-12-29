@@ -491,7 +491,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           }
           final fileName =
               'user_${widget.user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-          newImageUrl = await imageService.uploadImage(_imageFile!, fileName);
+          final imageUrl = await imageService.uploadImage(
+            _imageFile!,
+            fileName,
+            folder: 'bestmlewi/profiles',
+          );
+          newImageUrl = imageUrl;
         } else if (_imageUrl == null && widget.user.imageUrl != null) {
           await imageService.deleteImage(widget.user.imageUrl!);
           newImageUrl = null;

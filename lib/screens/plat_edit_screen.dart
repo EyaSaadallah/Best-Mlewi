@@ -110,6 +110,7 @@ class _PlatEditScreenState extends State<PlatEditScreen> {
         final imageUrl = await _imageKitService.uploadImage(
           _selectedImage!,
           fileName,
+          folder: 'bestmlewi/dishes',
         );
 
         setState(() {

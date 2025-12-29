@@ -174,7 +174,33 @@ class _PosEditScreenState extends State<PosEditScreen> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sales point saved successfully')),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.check_circle_outline_rounded,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '${pos.nom.toUpperCase()} SAVED AND STAFF NOTIFIED',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green[600],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            margin: const EdgeInsets.all(20),
+            elevation: 8,
+          ),
         );
       }
     } catch (e) {
@@ -194,15 +220,17 @@ class _PosEditScreenState extends State<PosEditScreen> {
     try {
       await _userRepository.updateIsAffected(userId, isAffected);
 
-      // Create notification
+      // Create notification for the user
       final message = isAffected
-          ? 'You have been assigned to ${_nomController.text}'
-          : 'You have been removed from ${_nomController.text}';
+          ? 'New Assignment: You have been successfully assigned to Point of Sale "${_nomController.text}".'
+          : 'Status Update: You have been removed from Point of Sale "${_nomController.text}".';
 
       await _notificationService.createNotification(
         userId: userId,
         message: message,
-        type: NotificationType.info,
+        type: isAffected ? NotificationType.success : NotificationType.info,
+        latitude: isAffected ? _latitude : null,
+        longitude: isAffected ? _longitude : null,
       );
     } catch (e) {
       debugPrint('Error updating user status: $e');

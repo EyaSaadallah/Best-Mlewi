@@ -77,6 +77,7 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
                   _buildMapWithLiveTracking(currentOrder),
 
                 // Reactive Info Sections
+                _buildPOSSection(currentOrder),
                 _buildAssignmentSection(currentOrder),
 
                 _buildOrderSummary(currentOrder),
@@ -512,6 +513,139 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
                 style: IconButton.styleFrom(backgroundColor: Colors.green[50]),
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPOSSection(Commande order) {
+    if (order.posId == null) return const SizedBox.shrink();
+
+    return FutureBuilder<PointDeVente?>(
+      future: FirebaseFirestore.instance
+          .collection('points_de_vente')
+          .where('id', isEqualTo: order.posId)
+          .limit(1)
+          .get()
+          .then(
+            (s) => s.docs.isNotEmpty
+                ? _posRepository.fromFirestore(s.docs.first)
+                : null,
+          ),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data == null) {
+          return const SizedBox.shrink();
+        }
+        final pos = snapshot.data!;
+
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.grey[100]!),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Row(
+              children: [
+                // Left Accent Bar / Icon Area
+                Container(
+                  width: 70,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.03),
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(24),
+                      bottomRight: Radius.circular(24),
+                    ),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.storefront_rounded,
+                      color: Colors.black,
+                      size: 30,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Text Content
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue[50],
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'PREPARING AT',
+                                style: TextStyle(
+                                  color: Colors.blue[700],
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          pos.nom,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 17,
+                            letterSpacing: -0.5,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.location_on_rounded,
+                              size: 12,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                pos.adresse,
+                                style: TextStyle(
+                                  color: Colors.grey[500],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

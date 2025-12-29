@@ -9,6 +9,9 @@ class Notification {
   final bool lu;
   final NotificationType type;
 
+  final double? latitude;
+  final double? longitude;
+
   Notification({
     required this.id,
     required this.userId,
@@ -16,6 +19,8 @@ class Notification {
     required this.dateEnvoi,
     required this.lu,
     required this.type,
+    this.latitude,
+    this.longitude,
   });
 
   Map<String, dynamic> toMap() {
@@ -26,6 +31,8 @@ class Notification {
       'dateEnvoi': dateEnvoi.toIso8601String(),
       'lu': lu,
       'type': type.toString().split('.').last,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 
@@ -40,6 +47,8 @@ class Notification {
         (e) => e.toString().split('.').last == map['type'],
         orElse: () => NotificationType.info,
       ),
+      latitude: map['latitude']?.toDouble(),
+      longitude: map['longitude']?.toDouble(),
     );
   }
 

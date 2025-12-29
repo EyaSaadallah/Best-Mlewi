@@ -18,6 +18,7 @@ import 'login_screen.dart' as login_screen;
 import 'profile_edit_screen.dart';
 import 'client/client_order_details_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Visitor screen – unauthenticated users can browse the menu.
 /// When a client is logged in, extra tabs (Profile, Notifications, Orders)
@@ -221,12 +222,62 @@ class _VisitorScreenState extends State<VisitorScreen> {
                   FutureBuilder<List<Menu>>(
                     future: _menuRepository.getAll(),
                     builder: (context, snapshot) {
+                      // Debug prints
+                      print('=== MENU DEBUG ===');
+                      print('Connection state: ${snapshot.connectionState}');
+                      print('Has error: ${snapshot.hasError}');
+                      if (snapshot.hasError) {
+                        print('Error: ${snapshot.error}');
+                      }
+                      print('Has data: ${snapshot.hasData}');
+                      if (snapshot.hasData) {
+                        print('Menu count: ${snapshot.data!.length}');
+                        for (var menu in snapshot.data!) {
+                          print(
+                            'Menu: ${menu.titre}, Dishes: ${menu.plats.length}',
+                          );
+                        }
+                      }
+                      print('=== END DEBUG ===');
+
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       }
-                      if (snapshot.hasError ||
-                          !snapshot.hasData ||
-                          snapshot.data!.isEmpty) {
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                size: 48,
+                                color: Colors.red,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Error loading menu',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[800],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                ),
+                                child: Text(
+                                  '${snapshot.error}',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
                         return const Center(child: Text('No menu available'));
                       }
 
@@ -911,6 +962,46 @@ class _VisitorScreenState extends State<VisitorScreen> {
                                       height: 1.4,
                                     ),
                                   ),
+                                  if (notif.latitude != null &&
+                                      notif.longitude != null &&
+                                      !notif.message.contains(
+                                        'assigned to your Point of Sale',
+                                      )) ...[
+                                    const SizedBox(height: 12),
+                                    ElevatedButton.icon(
+                                      onPressed: () => _openInMaps(
+                                        notif.latitude!,
+                                        notif.longitude!,
+                                      ),
+                                      icon: const Icon(
+                                        Icons.map_outlined,
+                                        size: 16,
+                                      ),
+                                      label: const Text(
+                                        'VIEW ON MAP',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.black,
+                                        foregroundColor: Colors.white,
+                                        elevation: 4,
+                                        shadowColor: Colors.black45,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 10,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 4),
                                   Text(
                                     DateFormat(
@@ -1089,15 +1180,31 @@ class _VisitorScreenState extends State<VisitorScreen> {
           return bTime.compareTo(aTime);
         });
 
+        // Remove duplicate orders with the same order ID
+        // Keep only the most recent version (based on Firestore document)
+        final Map<int, DocumentSnapshot> uniqueOrders = {};
+        for (final doc in sortedDocs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final orderId = data['id'] as int;
+
+          // If this order ID hasn't been seen yet, add it
+          if (!uniqueOrders.containsKey(orderId)) {
+            uniqueOrders[orderId] = doc;
+          }
+        }
+
+        // Convert back to list for display
+        final uniqueDocs = uniqueOrders.values.toList();
+
         return RefreshIndicator(
           onRefresh: () async {
             setState(() {});
           },
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: sortedDocs.length,
+            itemCount: uniqueDocs.length,
             itemBuilder: (context, index) {
-              final doc = sortedDocs[index];
+              final doc = uniqueDocs[index];
               final order = OrderRepository().fromFirestore(doc);
               return _buildOrderCard(order, doc.id);
             },
@@ -1637,5 +1744,13 @@ class _VisitorScreenState extends State<VisitorScreen> {
         );
       },
     );
+  }
+
+  Future<void> _openInMaps(double lat, double lng) async {
+    final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 }

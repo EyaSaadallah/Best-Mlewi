@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/firebase_auth_service.dart';
 import '../models/enums.dart';
 import '../models/utilisateur.dart';
@@ -656,6 +657,46 @@ class _HomeScreenState extends State<HomeScreen> {
                                       height: 1.4,
                                     ),
                                   ),
+                                  if (notif.latitude != null &&
+                                      notif.longitude != null &&
+                                      !notif.message.contains(
+                                        'assigned to your Point of Sale',
+                                      )) ...[
+                                    const SizedBox(height: 12),
+                                    ElevatedButton.icon(
+                                      onPressed: () => _openInMaps(
+                                        notif.latitude!,
+                                        notif.longitude!,
+                                      ),
+                                      icon: const Icon(
+                                        Icons.map_outlined,
+                                        size: 16,
+                                      ),
+                                      label: const Text(
+                                        'VIEW ON MAP',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.black,
+                                        foregroundColor: Colors.white,
+                                        elevation: 4,
+                                        shadowColor: Colors.black45,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 10,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 4),
                                   Text(
                                     DateFormat(
@@ -1601,5 +1642,13 @@ class _HomeScreenState extends State<HomeScreen> {
       selectedItemColor: _getRoleColor(role),
       unselectedItemColor: Colors.grey,
     );
+  }
+
+  Future<void> _openInMaps(double lat, double lng) async {
+    final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 }

@@ -2,6 +2,45 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Public read access for menus - visitors can browse dishes
+    match /menus/{menuId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+                      get(/databases/$(database)/documents/utilisateurs/$(request.auth.uid)).data.role == 'gerant';
+    }
+    
+    // Users collection - read own data, gerant can manage all
+    match /utilisateurs/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+                      (request.auth.uid == userId || 
+                       get(/databases/$(database)/documents/utilisateurs/$(request.auth.uid)).data.role == 'gerant');
+    }
+    
+    // Orders - clients can read their own, staff can read assigned orders
+    match /commandes/{orderId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && 
+                       get(/databases/$(database)/documents/utilisateurs/$(request.auth.uid)).data.role == 'client';
+      allow update, delete: if request.auth != null && 
+                                get(/databases/$(database)/documents/utilisateurs/$(request.auth.uid)).data.role in ['gerant', 'coordinateur', 'livreur'];
+    }
+    
+    // Points of Sale - public read for location info, gerant can manage
+    match /pointsDeVente/{posId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+                      get(/databases/$(database)/documents/utilisateurs/$(request.auth.uid)).data.role == 'gerant';
+    }
+    
+    // Notifications - users can only read their own
+    match /notifications/{notificationId} {
+      allow read, write: if request.auth != null && 
+                            resource.data.userId == request.auth.uid;
+    }
+    
+    // Default: require authentication for everything else
     match /{document=**} {
       allow read, write: if request.auth != null;
     }

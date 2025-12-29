@@ -886,6 +886,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         userId: _selectedLivreur!.id,
         message: 'New order #${widget.order.id} assigned to you.',
         type: NotificationType.info,
+        latitude: _selectedPOS!.latitude,
+        longitude: _selectedPOS!.longitude,
       );
 
       // Notify Coordinateur (if assigned to POS and POS has a coordinator)
@@ -1329,27 +1331,31 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () =>
-                  _openInMaps(widget.order.latitude!, widget.order.longitude!),
-              icon: const Icon(Icons.navigation_rounded),
-              label: const Text('GET DIRECTIONS'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+            if (_currentUserRole != Role.coordinateur) ...[
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => _openInMaps(
+                  widget.order.latitude!,
+                  widget.order.longitude!,
                 ),
-                textStyle: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                  letterSpacing: 1.0,
+                icon: const Icon(Icons.navigation_rounded),
+                label: const Text('GET DIRECTIONS'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    letterSpacing: 1.0,
+                  ),
+                  elevation: 0,
                 ),
-                elevation: 0,
               ),
-            ),
+            ],
           ],
         ],
       ),
@@ -1562,7 +1568,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           ),
           if (_assignedPOS?.latitude != null &&
               _assignedPOS?.longitude != null &&
-              _currentStatus != StatusCommande.delivering) ...[
+              _currentStatus != StatusCommande.delivering &&
+              _currentUserRole != Role.coordinateur) ...[
             const SizedBox(height: 12),
             ElevatedButton.icon(
               onPressed: () => _openInMaps(
@@ -1588,7 +1595,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               ),
             ),
           ],
-          if (orderLatLng != null) ...[
+          if (orderLatLng != null && _currentUserRole != Role.coordinateur) ...[
             const SizedBox(height: 12),
             ElevatedButton.icon(
               onPressed: () =>

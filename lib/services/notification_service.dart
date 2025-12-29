@@ -1,5 +1,6 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/notification.dart' as notif_model;
 import '../models/enums.dart';
 import '../repositories/notification_repository.dart';
@@ -28,7 +29,24 @@ class NotificationService {
       android: androidSettings,
     );
 
-    await _localNotifications.initialize(settings);
+    await _localNotifications.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) async {
+        if (response.actionId == 'show_map' && response.payload != null) {
+          final parts = response.payload!.split(',');
+          if (parts.length == 2) {
+            final lat = parts[0];
+            final lng = parts[1];
+            final url =
+                'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+            final uri = Uri.parse(url);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          }
+        }
+      },
+    );
 
     // Create notification channel for Android
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -49,8 +67,12 @@ class NotificationService {
   Future<void> _showLocalNotification({
     required String title,
     required String body,
+    double? latitude,
+    double? longitude,
   }) async {
-    const AndroidNotificationDetails androidDetails =
+    final bool hasLocation = latitude != null && longitude != null;
+
+    final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
           'bestmlewi_channel',
           'BestMlewi Notifications',
@@ -59,9 +81,19 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
           ticker: 'ticker',
+          actions: hasLocation
+              ? <AndroidNotificationAction>[
+                  const AndroidNotificationAction(
+                    'show_map',
+                    'Show on Map 📍',
+                    showsUserInterface: true,
+                    cancelNotification: false,
+                  ),
+                ]
+              : null,
         );
 
-    const NotificationDetails details = NotificationDetails(
+    final NotificationDetails details = NotificationDetails(
       android: androidDetails,
     );
 
@@ -70,6 +102,7 @@ class NotificationService {
       title,
       body,
       details,
+      payload: hasLocation ? '$latitude,$longitude' : null,
     );
   }
 
@@ -126,10 +159,12 @@ class NotificationService {
             'Message also contained a notification: ${message.notification?.title}',
           );
 
-          // Show local notification
+          // Show local notification with action button if lat/lng present
           _showLocalNotification(
             title: message.notification?.title ?? 'New Notification',
             body: message.notification?.body ?? '',
+            latitude: double.tryParse(message.data['latitude'] ?? ''),
+            longitude: double.tryParse(message.data['longitude'] ?? ''),
           );
         }
       });
@@ -151,6 +186,8 @@ class NotificationService {
     required int userId,
     required String message,
     required NotificationType type,
+    double? latitude,
+    double? longitude,
   }) async {
     final notification = notif_model.Notification(
       id: DateTime.now().millisecondsSinceEpoch,
@@ -159,6 +196,8 @@ class NotificationService {
       dateEnvoi: DateTime.now(),
       lu: false,
       type: type,
+      latitude: latitude,
+      longitude: longitude,
     );
     await _repository.create(notification);
   }
