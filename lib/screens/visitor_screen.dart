@@ -16,9 +16,15 @@ import 'cart_screen.dart';
 import 'dish_details_screen.dart';
 import 'login_screen.dart' as login_screen;
 import 'profile_edit_screen.dart';
+import '../widgets/account_switch_helper.dart';
 import 'client/client_order_details_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../repositories/utilisateur_repository.dart';
+import '../models/client.dart';
+import '../models/livreur.dart';
+import '../models/coordinateur.dart';
+import '../models/collaborateur.dart';
 
 /// Visitor screen – unauthenticated users can browse the menu.
 /// When a client is logged in, extra tabs (Profile, Notifications, Orders)
@@ -34,6 +40,7 @@ class _VisitorScreenState extends State<VisitorScreen> {
   final _menuRepository = MenuRepository();
   final _authService = FirebaseAuthService();
   final _notificationService = NotificationService();
+  final _userRepository = UtilisateurRepository();
   final _scrollController = ScrollController();
   final Map<String, GlobalKey> _categoryKeys = {};
 
@@ -610,14 +617,116 @@ class _VisitorScreenState extends State<VisitorScreen> {
 
                         if (result != null && result is Map<String, dynamic>) {
                           try {
-                            // Update local state if needed
-                            setState(() {});
+                            // Update user details based on user type
+                            Utilisateur updatedUser;
+
+                            if (user.role == Role.client) {
+                              updatedUser = Client(
+                                id: user.id,
+                                nom: result['nom'],
+                                prenom: result['prenom'],
+                                email: user.email,
+                                motDePasse: user.motDePasse,
+                                telephone: result['telephone'],
+                                dateInscription: user.dateInscription,
+                                isActive: user.isActive,
+                                isAffected: user.isAffected,
+                                isAvailable: user.isAvailable,
+                                adresse: result['adresse'],
+                                latitude: result['latitude'],
+                                longitude: result['longitude'],
+                                imageUrl: result['imageUrl'],
+                              );
+                            } else if (user.role == Role.livreur) {
+                              updatedUser = Livreur(
+                                id: user.id,
+                                nom: result['nom'],
+                                prenom: result['prenom'],
+                                email: user.email,
+                                motDePasse: user.motDePasse,
+                                telephone: result['telephone'],
+                                dateInscription: user.dateInscription,
+                                isActive: user.isActive,
+                                isAffected: user.isAffected,
+                                isAvailable: user.isAvailable,
+                                imageUrl: result['imageUrl'],
+                                adresse: result['adresse'],
+                                latitude: result['latitude'],
+                                longitude: result['longitude'],
+                              );
+                            } else if (user.role == Role.coordinateur) {
+                              updatedUser = Coordinateur(
+                                id: user.id,
+                                nom: result['nom'],
+                                prenom: result['prenom'],
+                                email: user.email,
+                                motDePasse: user.motDePasse,
+                                telephone: result['telephone'],
+                                dateInscription: user.dateInscription,
+                                isActive: user.isActive,
+                                isAffected: user.isAffected,
+                                isAvailable: user.isAvailable,
+                                imageUrl: result['imageUrl'],
+                                adresse: result['adresse'],
+                                latitude: result['latitude'],
+                                longitude: result['longitude'],
+                              );
+                            } else if (user.role == Role.collaborateur) {
+                              updatedUser = Collaborateur(
+                                id: user.id,
+                                nom: result['nom'],
+                                prenom: result['prenom'],
+                                email: user.email,
+                                motDePasse: user.motDePasse,
+                                telephone: result['telephone'],
+                                dateInscription: user.dateInscription,
+                                isActive: user.isActive,
+                                isAffected: user.isAffected,
+                                isAvailable: user.isAvailable,
+                                imageUrl: result['imageUrl'],
+                                adresse: result['adresse'],
+                                latitude: result['latitude'],
+                                longitude: result['longitude'],
+                              );
+                            } else {
+                              updatedUser = Utilisateur(
+                                id: user.id,
+                                nom: result['nom'],
+                                prenom: result['prenom'],
+                                email: user.email,
+                                motDePasse: user.motDePasse,
+                                telephone: result['telephone'],
+                                dateInscription: user.dateInscription,
+                                role: user.role,
+                                isActive: user.isActive,
+                                isAffected: user.isAffected,
+                                isAvailable: user.isAvailable,
+                                imageUrl: result['imageUrl'],
+                                adresse: result['adresse'],
+                                latitude: result['latitude'],
+                                longitude: result['longitude'],
+                              );
+                            }
+
+                            await _userRepository.updateUser(updatedUser);
+                            _authService.updateCurrentUser(updatedUser);
+
+                            // Update password if provided
+                            if (result['password'] != null &&
+                                result['oldPassword'] != null) {
+                              await _authService.updatePasswordWithReauth(
+                                result['oldPassword'],
+                                result['password'],
+                              );
+                            }
+
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('Profile updated successfully'),
                                 ),
                               );
+                              setState(() {}); // Refresh UI
                             }
                           } catch (e) {
                             if (mounted) {
@@ -718,6 +827,41 @@ class _VisitorScreenState extends State<VisitorScreen> {
                 ]),
 
                 const SizedBox(height: 32),
+
+                // Switch Account Button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => AccountSwitchHelper.showSwitchAccountModal(
+                      context,
+                      _authService,
+                      (success) {
+                        if (success) {
+                          setState(() {
+                            _selectedIndex = 0;
+                          });
+                        }
+                      },
+                    ),
+                    icon: const Icon(Icons.swap_horiz_rounded),
+                    label: const Text(
+                      'Switch Account',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.black,
+                      side: BorderSide(color: Colors.grey[300]!),
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 // Logout Button
                 SizedBox(

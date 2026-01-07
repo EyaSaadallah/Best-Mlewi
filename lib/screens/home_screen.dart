@@ -21,6 +21,7 @@ import 'coordinateur/coordinateur_orders_screen.dart';
 import 'livreur/livreur_orders_screen.dart';
 import 'client/client_orders_screen.dart';
 import 'visitor_screen.dart';
+import '../widgets/account_switch_helper.dart';
 
 /// Home screen showing different content based on user role
 class HomeScreen extends StatefulWidget {
@@ -947,6 +948,41 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 32),
                 ],
+
+                // Switch Account Button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => AccountSwitchHelper.showSwitchAccountModal(
+                      context,
+                      _authService,
+                      (success) {
+                        if (success) {
+                          setState(() {
+                            // Home screen will automatically refresh with new user
+                          });
+                        }
+                      },
+                    ),
+                    icon: const Icon(Icons.swap_horiz_rounded),
+                    label: const Text(
+                      'Switch Account',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.black,
+                      side: BorderSide(color: Colors.grey[300]!),
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 // Logout Button
                 SizedBox(

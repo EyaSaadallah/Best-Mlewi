@@ -1,4 +1,4 @@
-import 'dart:io';
+ import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -88,21 +88,26 @@ class ImageKitService {
       final responseBody = await response.stream.bytesToString();
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        try {
-          final jsonResponse = jsonDecode(responseBody) as Map<String, dynamic>;
-          if (jsonResponse.containsKey('url')) {
-            final imageUrl = jsonResponse['url'] as String;
-            debugPrint('ImageKit upload successful: $imageUrl');
-            return imageUrl;
-          } else {
-            throw Exception('No URL in ImageKit response: $responseBody');
-          }
-        } catch (parseError) {
-          throw Exception('Failed to parse ImageKit response: $parseError');
-        }
+        final jsonResponse = jsonDecode(responseBody) as Map<String, dynamic>;
+        final imageUrl = jsonResponse['url'] as String;
+        debugPrint('ImageKit upload successful: $imageUrl');
+        return imageUrl;
       } else {
         debugPrint('ImageKit Error Response: $responseBody');
-        // Check for specific error messages
+
+        // Detailed guidance for 403 errors
+        if (response.statusCode == 403) {
+          if (_privateKey.length < 30 || _publicKey.length < 20) {
+            throw Exception(
+              'ImageKit Authentication Failed (403). \n\n'
+              'CRITICAL: Your keys in .env look too short! \n'
+              'Private Key length: ${_privateKey.length} (expected ~40+)\n'
+              'Public Key length: ${_publicKey.length} (expected ~27+)\n'
+              'Please check for accidental line breaks in your .env file.',
+            );
+          }
+        }
+
         Map<String, dynamic>? errorJson;
         try {
           errorJson = jsonDecode(responseBody);

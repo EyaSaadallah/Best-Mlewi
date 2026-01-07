@@ -5,6 +5,7 @@ import '../models/enums.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 import 'setup_screen.dart';
+import '../services/account_service.dart';
 
 /// Login screen for user authentication
 class LoginScreen extends StatefulWidget {
@@ -147,7 +148,135 @@ class _LoginScreenState extends State<LoginScreen> {
                   fit: BoxFit.cover,
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
+
+              // Saved Accounts Section
+              FutureBuilder<List<SavedAccount>>(
+                future: AccountService().getSavedAccounts(),
+                builder: (context, snapshot) {
+                  final accounts = snapshot.data ?? [];
+                  if (accounts.isEmpty) return const SizedBox.shrink();
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Continue as',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 100,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: accounts.length,
+                          itemBuilder: (context, index) {
+                            final account = accounts[index];
+                            return GestureDetector(
+                              onTap: () async {
+                                final password = await AccountService()
+                                    .getPassword(account.email);
+                                if (password != null) {
+                                  setState(() => _isLoading = true);
+                                  try {
+                                    final success = await _authService.login(
+                                      account.email,
+                                      password,
+                                    );
+                                    if (success) {
+                                      if (mounted) {
+                                        final currentUser =
+                                            _authService.currentUser;
+                                        if (currentUser != null &&
+                                            currentUser.role == Role.client) {
+                                          Navigator.of(
+                                            context,
+                                          ).pushReplacementNamed('/visitor');
+                                        } else {
+                                          Navigator.of(
+                                            context,
+                                          ).pushReplacementNamed('/home');
+                                        }
+                                      }
+                                    }
+                                  } catch (e) {
+                                    setState(
+                                      () => _errorMessage = e.toString(),
+                                    );
+                                  } finally {
+                                    if (mounted) {
+                                      setState(() => _isLoading = false);
+                                    }
+                                  }
+                                }
+                              },
+                              child: Container(
+                                width: 80,
+                                margin: const EdgeInsets.only(right: 16),
+                                child: Column(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 28,
+                                      backgroundColor: Colors.grey[200],
+                                      backgroundImage: account.imageUrl != null
+                                          ? NetworkImage(account.imageUrl!)
+                                          : null,
+                                      child: account.imageUrl == null
+                                          ? Text(
+                                              account.name.isNotEmpty
+                                                  ? account.name[0]
+                                                        .toUpperCase()
+                                                  : '?',
+                                              style: const TextStyle(
+                                                color: Colors.black54,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      account.name.split(' ')[0],
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Row(
+                        children: [
+                          Expanded(child: Divider()),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'or use another account',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                          Expanded(child: Divider()),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
 
               // Title
               Text(

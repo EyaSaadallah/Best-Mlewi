@@ -9,6 +9,7 @@ import '../models/livreur.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../config/firebase_options.dart';
 import '../repositories/utilisateur_repository.dart';
+import 'account_service.dart';
 import 'notification_service.dart';
 
 /// Firebase authentication service
@@ -267,6 +268,15 @@ class FirebaseAuthService {
           }
 
           _currentUser = utilisateur;
+
+          // Save account locally
+          await AccountService().saveAccount(
+            email: email,
+            password: password,
+            name: '${utilisateur.prenom} ${utilisateur.nom}',
+            role: utilisateur.role,
+            imageUrl: utilisateur.imageUrl,
+          );
 
           // Initialize FCM and save token
           await _notificationService.initialize(userId: utilisateur.id);
